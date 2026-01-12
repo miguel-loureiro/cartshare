@@ -1,0 +1,37 @@
+pipeline {
+    agent any
+    environment {
+        // USE THE TAILSCALE IP OF YOUR VPS HERE (e.g., 100.64.x.y)
+        REMOTE_HOST = '100.x.y.z'
+        REMOTE_USER = 'mloureiro'
+        REMOTE_PATH = '/home/mloureiro/cartshare'
+        SSH_CRED_ID = 'vps-ssh-key'
+        JAR_NAME    = 'backend-0.0.1-SNAPSHOT.jar'
+    }
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building with Gradle...'
+                sh './gradlew clean build -x test'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sshagent([env.SSH_CRED_ID]) {
+                    echo 'Uploading JAR via Tailscale...'
+                    sh "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' build/libs/${env.JAR_NAME} ${env.REMOTE_USER}@${env.REMOTE_HOST}:${env.REMOTE_PATH}/"
+
+                    echo 'Restarting Service on VPS...'
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart cartshare.service'"
+                }
+            }
+        }
+        stage('Verify') {
+            steps {
+                sshagent([env.SSH_CRED_ID]) {
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status cartshare.service --no-pager'"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,73 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.cartshare'
+version = '0.0.1-SNAPSHOT'
+description = 'backend'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Force Spring Boot 3.4.1 Bill of Materials
+    implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.1')
+
+    // Web and Security
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // Cloud Firestore (Spring Cloud GCP)
+    // Note: Version is managed by the BOM in dependencyManagement
+    implementation 'com.google.cloud:spring-cloud-gcp-starter-data-firestore'
+    implementation 'com.google.cloud:spring-cloud-gcp-starter'
+
+    // Required for Reactive Firestore support
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // SpringDoc OpenAPI (Swagger)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
+
+    // JSpecify Null Safety
+    implementation 'org.jspecify:jspecify:1.0.0'
+
+    // Utilities
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Testing
+    // Spring Boot 3 uses 'spring-boot-starter-test' for all core testing libraries
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+}
+
+dependencyManagement {
+    imports {
+        // This ensures all com.google.cloud libraries play nice with Spring Boot 3.4
+        mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:5.9.0"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
