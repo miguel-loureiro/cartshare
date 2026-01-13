@@ -9,11 +9,8 @@ import java.util.List;
 
 @Document(collectionName = "categories")
 public record Category(
-        @DocumentId
-        @NonNull String id,
-
-        @NonNull String name,           // Ex: "Limpeza"
-        @NonNull String classification,
-        // Ex: "Casa"
-        @NonNull List<String> keywords  // Ex: ["detergente", "lixívia", "amaciador"]
+        @DocumentId @NonNull String id, // categoryId column
+        @NonNull String name,           // name column
+        @NonNull String classification, // classification column (NEW)
+        int priority                    // priority column
 ) {}

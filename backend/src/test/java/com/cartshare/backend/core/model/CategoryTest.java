@@ -14,43 +14,54 @@ class CategoryTest {
     @DisplayName("Deve criar uma categoria com sucesso quando os dados são válidos")
     void shouldCreateCategoryWithValidData() {
         // Arrange
-        String id = "cat-123";
+        String id = "LIMPEZA";
         String name = "Limpeza";
-        String classification = "Casa";
-        List<String> keywords = List.of("detergente", "lixívia");
+        String classification = "CASA";
+        int priority = 4;
 
         // Act
-        Category category = new Category(id, name, classification, keywords);
+        Category category = new Category(id, name, classification, priority);
 
         // Assert
-        assertAll("Validação das propriedades do Record",
-                () -> assertEquals(id, category.id()),
-                () -> assertEquals(name, category.name()),
-                () -> assertEquals(classification, category.classification()),
-                () -> assertEquals(2, category.keywords().size()),
-                () -> assertTrue(category.keywords().contains("detergente"))
+        assertAll("Validação das propriedades do Record Category",
+                () -> assertEquals(id, category.id(), "O ID deve ser mantido em CAPS"),
+                () -> assertEquals(name, category.name(), "O nome de exibição deve estar correto"),
+                () -> assertEquals(classification, category.classification(), "A classificação deve estar correta"),
+                () -> assertEquals(priority, category.priority(), "A prioridade deve ser o valor definido")
         );
     }
 
     @Test
     @DisplayName("Deve garantir a igualdade entre dois records com os mesmos valores")
     void shouldEnsureEqualityBetweenIdenticalRecords() {
-        List<String> kws = List.of("pão", "leite");
+        // Arrange & Act
+        Category cat1 = new Category("ALIMENTOS", "Alimentação", "MERCEARIA", 1);
+        Category cat2 = new Category("ALIMENTOS", "Alimentação", "MERCEARIA", 1);
 
-        Category cat1 = new Category("1", "Padaria", "Alimentos", kws);
-        Category cat2 = new Category("1", "Padaria", "Alimentos", kws);
-
-        assertEquals(cat1, cat2, "Records com valores idênticos devem ser iguais (equals)");
-        assertEquals(cat1.hashCode(), cat2.hashCode(), "HashCodes devem ser idênticos");
+        // Assert
+        assertAll("Igualdade de Records",
+                () -> assertEquals(cat1, cat2, "Records com valores idênticos devem ser iguais (equals)"),
+                () -> assertEquals(cat1.hashCode(), cat2.hashCode(), "HashCodes devem ser idênticos"),
+                () -> assertNotSame(cat1, cat2, "Devem ser instâncias diferentes na memória")
+        );
     }
 
     @Test
     @DisplayName("Deve refletir a imutabilidade do Record")
     void shouldBeImmutable() {
-        Category cat = new Category("1", "Frutas", "Frescos", List.of("Maçã"));
+        // Arrange
+        Category cat = new Category("SAUDE", "Saúde", "CUIDADOS", 3);
 
-        // Em Java Records, não existem setters. A única forma de "mudar" é criar um novo.
-        assertNotNull(cat.id());
-        // Verificação conceitual: os campos são finais por padrão no bytecode.
+        // Assert
+        // Em Java Records, os componentes são acessados via métodos que não permitem alteração.
+        // A verificação abaixo garante que os valores permanecem os mesmos após a criação.
+        assertAll("Imutabilidade",
+                () -> assertEquals("SAUDE", cat.id()),
+                () -> assertEquals("Saúde", cat.name()),
+                () -> assertEquals("CUIDADOS", cat.classification()),
+                () -> assertEquals(3, cat.priority())
+        );
+
+        // Nota: Não existem métodos 'setID' ou 'setPriority' em Records compilados.
     }
 }

@@ -54,11 +54,22 @@ dependencies {
     // Testing
     // Spring Boot 3 uses 'spring-boot-starter-test' for all core testing libraries
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 
     // Validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Apache POI for Excel Processing
+    implementation 'org.apache.poi:poi:5.4.0'
+    implementation 'org.apache.poi:poi-ooxml:5.4.0'
+
+    testImplementation 'org.apache.poi:poi:5.4.0'
+    testImplementation 'org.apache.poi:poi-ooxml:5.4.0'
+
+    // Required for POI 5.x logging
+    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
 }
 
 dependencyManagement {
