@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "cartshare-484109",
+  "private_key_id": "27888278f469af47d242914a53c33d7b63b50499",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDRhFl6pkBPwqVA\n6B19bRsuLCirpS5r82PKB4EOyfI8JUymVXRlgd2ZvgNsW1ICiM7VHvFpzGGySs1J\nqaXE34RFoMcizQrdKhWaUaehm9Aqzt7sXzPKmq8Ikq5AJ5Bj8goGZoiHyTaZsno3\nnCSVoXglkXVrzpWxDxevOWXGX9SXKP0BatpczLwc4l6dckWpvDX7l7T4Ppti/hyz\nALWE5y86/CXVRejiN+6gyI12FhQwIDa4gPWJcCMsT+5Tinib2BRL27bZFcBjxc/2\n4cLGbFJZHb/LoNngH7x7Q2nBoKoGv90UhPRWsOjAwlmMKJzC/WG67Qsnt+7roA7+\nEzkwh8YHAgMBAAECggEAESWyJmM+4N2UUB3vHpnJtLCxL23DFoYCmmvyIwy3bOFn\nRuG4N1U2lrjsvMyIh2PnpvJJCG34Ekh5nq1qFL/E/+crBRfKQNQ16mhZE3/rZzrW\nbHqqLssUHNvXCQcek8ohCem7A39Inwbyu7m6wMhIoK0pSAZ4ooIStSjkbHo2rZxA\n0u+kRY9OlwX60oBUnckGE78TFgOWsj9zhwcoikeQ61JUCenYDoNwb8t2HyvN3mSk\n/40f4c9iUBetatCFX97k/I/5llE67vqUkccal7WIdLSwDIxxzQg11UKy48QhxUWN\nusaqemshl5ToiehnlktvCoFJ/0I/zpXMFhcd/DMlmQKBgQD5UKAWep5pwHDvk51i\nJB2uJiJ1g8GJ+1B9fUgXhutgGJEce+wGB6Lsct0O49fvVYaTXi2AYpW/r5PMkGHl\nmoPJHc0oVrKjC5l6qlAfiBPEN6NM0G92iH64BxDazk/CfhwNExDowYavP4XShnSV\nUImCyWgt8jCkfNguUL2vi0si7QKBgQDXIonsieModKFUKQHHoIYFRoD3HDjgsqcY\nBQ2UI57XIFqd2lG52pcYVIVwWYt2WVOmPTCYWMOyHwMs5DSb1QpOKj2L1qcVgciq\nbgKoN1sLjMwLeoJVu5qUmnty2RSIta4fMABnGyhYx93gQGl8PL25BKBhJwHawX9Q\najvnYpXqQwKBgHpM/8snKZCs83nDCwB6wQiN8nd9Q7LBUtHMZFIOQGaqhnzXmYe3\ntUeSbTiBsorYhKTEHUQOmHEo2zMNXMi6TI2bDeoM5aKv7QFMjPN62F93/6aN1S/r\nc2YpKS586Il7PZ14TeIwFTbgzW/hv00D7gD3diCb3xrBl3bY6sQza49dAoGBAJPZ\nuNBHM0ZqYTVluUNonrKhcaBiVPSX0x4+2sYkdNWD9sLld6UzBQRDkjFUWPRND6AA\nDZWl61hO1+/SJhWypBJ0FTg1nT66ox393PWelYOqj9CTsV8aP3JBePXFGseZlMD6\nTEyP7XqWYXXszpIDbJ/q/g3GsQ+WS9kIKYMrzbvhAoGAZdjoR7slZ2kMZfxR06ME\nECiB79R2+Ro7e8fb2Opd9JgAm3XDvvtpM/NVkcMKu9KLc4vNSoAv5Qjm/M6L6Wb7\n6IH0DgmjejfLIuicW09PjDi513JTFmN4AccvZZOYnorJWbWqjvuOyaTeWqam1dxV\nFFg9oFX2noW8CrIe7sWjabM=\n-----END PRIVATE KEY-----\n",
+  "client_email": "cartshare-backend-vps@cartshare-484109.iam.gserviceaccount.com",
+  "client_id": "105075304902646173474",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/cartshare-backend-vps%40cartshare-484109.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
