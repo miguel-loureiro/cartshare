@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.List;
 @Component
 @Order(2) // Runs AFTER the Data Seeder (if seeder is enabled)
 @RequiredArgsConstructor
+@Service
 public class AutocompleteWarmup implements CommandLineRunner {
 
     private final Firestore firestore;

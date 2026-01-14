@@ -1,7 +1,10 @@
 package com.cartshare.backend.shared.util;
 
+import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
+import com.cartshare.backend.core.model.Product;
 import com.cartshare.backend.core.service.AutocompleteService;
+import com.cartshare.backend.core.service.ProductCategoryMatcher;
 import com.cartshare.backend.infrastructure.excel.ExcelReader;
 import com.cartshare.backend.infrastructure.excel.FirestoreExcelImporter;
 import lombok.RequiredArgsConstructor;
@@ -30,45 +33,65 @@ public class FirestoreDataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
-            log.info("--- STARTING FIRESTORE DATA SEEDING ---");
+            log.info("--- 🚀 STARTING FIRESTORE DATA SEEDING ---");
 
-            // 1. Import Categories
+            // 1. Prepare Categories
             Resource catRes = resourceLoader.getResource("classpath:excel/Categories.xlsx");
+            List<Category> categories;
             try (InputStream is = catRes.getInputStream()) {
-                importer.importCategories(is);
+                categories = ExcelReader.read(is).stream()
+                        .filter(row -> row.size() >= 4)
+                        .map(row -> new Category(
+                                ExcelReader.toSafeId(row.get(0)),
+                                row.get(1),
+                                ExcelReader.toSafeId(row.get(2)),
+                                Integer.parseInt(row.get(3))
+                        )).toList();
+
+                importer.importCategoriesFromList(categories);
+                log.info("✅ Categories processed: {}", categories.size());
             }
 
-            // 2. Import Keywords (Needed for Product matching)
+            // 2. Prepare Keywords
             Resource kwRes = resourceLoader.getResource("classpath:excel/keywords.xlsx");
             List<Keyword> keywords;
             try (InputStream is = kwRes.getInputStream()) {
-                // We read them into a list to pass to the product importer
                 keywords = ExcelReader.read(is).stream()
-                        .filter(r -> r.size() >= 2)
-                        .map(r -> new Keyword(r.get(0), ExcelReader.toSafeId(r.get(1))))
+                        .filter(row -> row.size() >= 2)
+                        .map(row -> new Keyword(row.get(0), ExcelReader.toSafeId(row.get(1))))
                         .toList();
 
-                // Re-read stream for the actual Firestore import
-                try (InputStream isImport = kwRes.getInputStream()) {
-                    importer.importKeywords(isImport);
-                }
+                importer.importKeywordsFromList(keywords);
+                log.info("✅ Keywords processed: {}", keywords.size());
             }
 
-            // 3. Import Products
+            // 3. Prepare Products
             Resource prodRes = resourceLoader.getResource("classpath:excel/Products.xlsx");
+            List<Product> products;
             try (InputStream is = prodRes.getInputStream()) {
-                importer.importProducts(is, keywords);
+                products = ExcelReader.read(is).stream()
+                        .filter(row -> row.size() >= 2)
+                        .map(row -> {
+                            String name = row.get(0);
+                            String categoryId = ProductCategoryMatcher.resolveCategory(name, keywords, row.get(1));
+                            // We generate the search keywords here so they are available for the index
+                            List<String> searchKeywords = importer.generateSearchKeywords(name);
+                            return new Product(name, categoryId, true, searchKeywords);
+                        }).toList();
+
+                importer.importProductsFromList(products);
+                log.info("✅ Products processed: {}", products.size());
             }
 
-            log.info("--- SEEDING COMPLETED SUCCESSFULLY ---");
+            log.info("--- ✨ DATABASE SEEDING COMPLETED ---");
 
-            // 4. Trigger Autocomplete Index Warm-up
-            // In a real scenario, you'd fetch these from Firestore,
-            // but for the first boot, we can trigger an initial index here.
-            log.info("Warming up Autocomplete Index...");
+            // 4. Update Autocomplete Index
+            log.info("🔄 Updating Autocomplete Master Index...");
+            autocompleteService.indexUpdate(categories, keywords, products);
+            log.info("✅ Autocomplete Index is now warm and ready!");
 
         } catch (Exception e) {
-            log.error("Critical error during data seeding: {}", e.getMessage(), e);
+            log.error("❌ Critical error during data seeding: ", e);
         }
     }
 }
