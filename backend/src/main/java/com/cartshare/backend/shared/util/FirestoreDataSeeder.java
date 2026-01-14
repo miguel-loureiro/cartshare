@@ -39,6 +39,7 @@ public class FirestoreDataSeeder implements CommandLineRunner {
             Resource catRes = resourceLoader.getResource("classpath:excel/Categories.xlsx");
             List<Category> categories;
             try (InputStream is = catRes.getInputStream()) {
+
                 categories = ExcelReader.read(is).stream()
                         .filter(row -> row.size() >= 4)
                         .map(row -> new Category(
