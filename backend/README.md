@@ -1,7 +1,7 @@
 ## CartShare
 
 ### Backend
-
+This is a presentation of the key aspects of the backend
 
 ### Firestore
 
