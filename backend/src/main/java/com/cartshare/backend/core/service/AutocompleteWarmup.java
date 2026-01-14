@@ -32,6 +32,7 @@ public class AutocompleteWarmup implements CommandLineRunner {
         log.info(">>> Starting Autocomplete Index Warm-up from Firestore...");
         try {
             // 1. Fetch Categories
+            Thread.sleep(5000); // Wait 5 seconds
             List<Category> categories = fetchCollection("categories", Category.class);
             log.info("Loaded {} categories for indexing.", categories.size());
 
@@ -56,8 +57,20 @@ public class AutocompleteWarmup implements CommandLineRunner {
      * Helper to fetch a collection and map it to a Java Record/Class
      */
     private <T> List<T> fetchCollection(String collectionName, Class<T> targetClass) throws Exception {
-        ApiFuture<QuerySnapshot> future = firestore.collection(collectionName).get();
-        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+        int attempts = 0;
+        List<QueryDocumentSnapshot> documents = new ArrayList<>();
+
+        // Try up to 3 times with a delay if the collection is empty
+        while (documents.isEmpty() && attempts < 3) {
+            ApiFuture<QuerySnapshot> future = firestore.collection(collectionName).get();
+            documents = future.get().getDocuments();
+
+            if (documents.isEmpty()) {
+                log.warn("Collection '{}' is empty, retrying in 2s...", collectionName);
+                Thread.sleep(2000);
+                attempts++;
+            }
+        }
 
         List<T> results = new ArrayList<>();
         for (QueryDocumentSnapshot doc : documents) {
