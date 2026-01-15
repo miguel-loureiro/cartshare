@@ -1,11 +1,12 @@
 pipeline {
     agent any
     environment {
-
-        REMOTE_HOST = '100.102.71.27'
-        REMOTE_USER = 'mloureiro'
-        REMOTE_PATH = '/home/mloureiro/cartshare'
-        SSH_CRED_ID = 'vps-ssh-key'
+        // Use your Public IP or Tailscale IP.
+        // 77.90.39.240 is your Public IPv4.
+        REMOTE_HOST = '100.106.60.43'
+        REMOTE_USER = 'mike'
+        REMOTE_PATH = '/home/mike/cartshare'
+        SSH_CRED_ID = 'vps4g_ml_key' // Ensure this Jenkins Credential contains your 'vps4g_ml_key'
         JAR_NAME    = 'backend-0.0.1-SNAPSHOT.jar'
     }
     stages {
@@ -13,7 +14,6 @@ pipeline {
             steps {
                 echo 'Building with Gradle...'
                 dir('backend') {
-                    // Ensure gradlew is executable before running
                     sh 'chmod +x gradlew'
                     sh './gradlew clean build -x test'
                 }
@@ -22,11 +22,13 @@ pipeline {
         stage('Deploy') {
             steps {
                 sshagent([env.SSH_CRED_ID]) {
-                    echo 'Uploading JAR via Tailscale...'
+                    echo "Uploading JAR to ${env.REMOTE_HOST}..."
+                    // rsync is better than scp for speed!
                     sh "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' backend/build/libs/${env.JAR_NAME} ${env.REMOTE_USER}@${env.REMOTE_HOST}:${env.REMOTE_PATH}/"
 
                     echo 'Restarting Service on VPS...'
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart cartshare.service'"
+                    // Note: Ensure the service name matches exactly what you created (myapp.service)
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart myapp.service'"
                 }
             }
         }
@@ -34,7 +36,7 @@ pipeline {
             steps {
                 sshagent([env.SSH_CRED_ID]) {
                     echo 'Checking Service Status...'
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status cartshare.service --no-pager'"
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status myapp.service --no-pager'"
                 }
             }
         }

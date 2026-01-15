@@ -8,8 +8,12 @@ import java.util.List;
 
 @Document(collectionName = "products")
 public record Product(
+        @DocumentId String id,
         String productName,
         @NonNull String categoryId,
         boolean isOfficial,             // true = Excel, false = User
         List<String> searchKeywords     // Generated automatically
-) {}
+) {
+    public static Object builder() {
+    }
+}
