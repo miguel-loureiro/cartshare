@@ -40,9 +40,9 @@ public class KeywordService {
 
             log.info("✅ Keywords created for product: {}", productName);
 
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("⚠️ Error creating keywords: ", e);
-            // Don't fail the product creation if keywords fail
+        } catch (Exception e) { // Change this to Exception to catch all Firestore/Runtime issues
+            log.error("⚠️ Error creating keywords for product {}: ", productName, e);
+            // Flow continues gracefully
         }
     }
 

@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.4.1'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'jacoco'
 }
 
 group = 'com.cartshare'
@@ -14,71 +15,116 @@ java {
     }
 }
 
+repositories {
+    mavenCentral()
+}
+
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    // Force Spring Boot 3.4.1 Bill of Materials
     implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.1')
 
     // Web and Security
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // Cloud Firestore (Spring Cloud GCP)
-    // Note: Version is managed by the BOM in dependencyManagement
+    // Cloud Firestore
     implementation 'com.google.cloud:spring-cloud-gcp-starter-data-firestore'
     implementation 'com.google.cloud:spring-cloud-gcp-starter'
-
-    // Required for Reactive Firestore support
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
-    // SpringDoc OpenAPI (Swagger)
+    // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
 
-    // JSpecify Null Safety
-    implementation 'org.jspecify:jspecify:1.0.0'
-
     // Utilities
+    implementation 'org.jspecify:jspecify:1.0.0'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
+    // Validation & Excel
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.apache.poi:poi:5.4.0'
+    implementation 'org.apache.poi:poi-ooxml:5.4.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
+
     // Testing
-    // Spring Boot 3 uses 'spring-boot-starter-test' for all core testing libraries
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-
-    // Validation
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-
-    // Apache POI for Excel Processing
-    implementation 'org.apache.poi:poi:5.4.0'
-    implementation 'org.apache.poi:poi-ooxml:5.4.0'
-
     testImplementation 'org.apache.poi:poi:5.4.0'
     testImplementation 'org.apache.poi:poi-ooxml:5.4.0'
-
-    // Required for POI 5.x logging
-    implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
 }
 
 dependencyManagement {
     imports {
-        // This ensures all com.google.cloud libraries play nice with Spring Boot 3.4
         mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:5.9.0"
     }
 }
 
+// --- JaCoCo Configuration ---
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
 tasks.named('test') {
     useJUnitPlatform()
+    exclude '**/FirestoreDataSeeder.class'
+
+    // Optional: Log to console so you know it's being skipped
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+    // Resolves Mockito/JDK 21 agent warnings
+    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    finalizedBy jacocoTestReport
 }
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+
+    // Excludes classes from the HTML visual report
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    "**/com/cartshare/backend/core/model/**",
+                    "**/com/cartshare/backend/config/**",
+                    "**/*Application*",
+                    "**/*Builder*"
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    violationRules {
+        rule {
+            element = 'CLASS'
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.80 // 80% Coverage Requirement
+            }
+            // Excludes classes from the verification math
+            excludes = [
+                    "com.cartshare.backend.core.model.*",
+                    "com.cartshare.backend.config.*",
+                    "com.cartshare.backend.BackendApplication",
+                    "com.cartshare.backend.shared.util.FirestoreDataSeeder"
+            ]
+        }
+    }
+}
+
+// Force verification to run during build
+check.dependsOn jacocoTestCoverageVerification
