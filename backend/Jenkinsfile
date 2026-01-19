@@ -28,7 +28,7 @@ pipeline {
 
                     echo 'Restarting Service on VPS...'
                     // Note: Ensure the service name matches exactly what you created (myapp.service)
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart myapp.service'"
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart cartshare.service'"
                 }
             }
         }
@@ -36,7 +36,7 @@ pipeline {
             steps {
                 sshagent([env.SSH_CRED_ID]) {
                     echo 'Checking Service Status...'
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status myapp.service --no-pager'"
+                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status cartshare.service --no-pager'"
                 }
             }
         }
