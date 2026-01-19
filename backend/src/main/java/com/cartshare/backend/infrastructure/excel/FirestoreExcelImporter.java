@@ -82,6 +82,7 @@ public class FirestoreExcelImporter {
 
             if (!dryRun) {
                 // By passing the Record 'kw', Firestore uses @DocumentId and @PropertyName
+                assert batch != null;
                 batch.set(firestore.collection("keywords").document(docId), kw);
                 count++;
 

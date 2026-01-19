@@ -20,7 +20,7 @@ class ProductTest {
         List<String> keywords = List.of("abacaxi", "perola");
 
         // Act
-        Product product = new Product(name, categoryId, isOfficial, keywords);
+        Product product = new Product(null,name, categoryId, isOfficial, keywords);
 
         // Assert
         assertAll("Validação do Produto Oficial",
@@ -42,7 +42,7 @@ class ProductTest {
         List<String> keywords = List.of("dragon", "fruit");
 
         // Act
-        Product product = new Product(name, categoryId, isOfficial, keywords);
+        Product product = new Product(null, name, categoryId, isOfficial, keywords);
 
         // Assert
         assertAll("Validação do Produto de Usuário",
@@ -55,7 +55,7 @@ class ProductTest {
     @DisplayName("Deve garantir imutabilidade da lista de keywords")
     void shouldEnsureKeywordsAreImmutable() {
         // Arrange
-        Product product = new Product("Leite", "BEBIDAS", true, List.of("leite"));
+        Product product = new Product(null,"Leite", "BEBIDAS", true, List.of("leite"));
 
         // Assert
         // A lista retornada por List.of() já é imutável

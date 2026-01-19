@@ -1,5 +1,81 @@
 ## CartShare
 
+
+
+### Project Layout
+
+```graph
+
+project-root/
+├── backend/                    # Spring Boot - API Server
+│   ├── src/
+│   │   └── main/java/com/example/
+│   │       ├── controller/
+│   │       │   ├── FirestoreManagementController.java
+│   │       │   └── SyncController.java              # NEW
+│   │       ├── service/
+│   │       │   ├── AutocompleteService.java
+│   │       │   └── FirestoreExcelImporter.java
+│   │       ├── model/
+│   │       │   ├── Category.java
+│   │       │   ├── Keyword.java
+│   │       │   └── Product.java
+│   │       └── ...
+│   ├── pom.xml
+│   └── ...
+│
+├── frontend/                   # React Web Dashboard
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── FirestoreDashboard.jsx
+│   │   └── ...
+│   ├── package.json
+│   └── ...
+│
+└── android/                    # Android Mobile App
+    ├── app/
+    │   ├── src/
+    │   │   ├── main/
+    │   │   │   ├── kotlin/com/example/
+    │   │   │   │   ├── data/
+    │   │   │   │   │   ├── local/
+    │   │   │   │   │   │   ├── dao/
+    │   │   │   │   │   │   │   ├── CategoryDao.kt
+    │   │   │   │   │   │   │   ├── KeywordDao.kt
+    │   │   │   │   │   │   │   └── ProductDao.kt
+    │   │   │   │   │   │   └── database/
+    │   │   │   │   │   │       └── AppDatabase.kt
+    │   │   │   │   │   ├── remote/
+    │   │   │   │   │   │   └── FirestoreApi.kt
+    │   │   │   │   │   └── repository/
+    │   │   │   │   │       ├── CategoryRepository.kt
+    │   │   │   │   │       ├── KeywordRepository.kt
+    │   │   │   │   │       └── ProductRepository.kt
+    │   │   │   │   ├── domain/
+    │   │   │   │   │   ├── model/
+    │   │   │   │   │   │   ├── Category.kt
+    │   │   │   │   │   │   ├── Keyword.kt
+    │   │   │   │   │   │   └── Product.kt
+    │   │   │   │   │   └── usecase/
+    │   │   │   │   │       ├── SyncDataUseCase.kt
+    │   │   │   │   │       └── SearchUseCase.kt
+    │   │   │   │   ├── presentation/
+    │   │   │   │   │   ├── viewmodel/
+    │   │   │   │   │   │   └── SearchViewModel.kt
+    │   │   │   │   │   └── ui/
+    │   │   │   │   │       └── SearchScreen.kt
+    │   │   │   │   └── MainActivity.kt
+    │   │   │   └── res/
+    │   │   └── test/
+    │   ├── build.gradle.kts
+    │   └── ...
+    ├── build.gradle.kts
+    └── settings.gradle.kts
+    
+    
+
+
+```
 ### Backend
 This is a presentation of the key aspects of the backend
 
@@ -56,6 +132,7 @@ If you want this extra security layer, run the following commands **as `mike` on
 ### Install Tailscale
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
+```
 
 ### Github Webhook
 
@@ -67,20 +144,25 @@ curl -fsSL https://tailscale.com/install.sh | sh
 
 ### Products
 
-lshfdshfhiodhfiodhoifhdoihoihdoivodhovhdoihvoihdovhodihvoidhoihvd
-### Final thouths
+
+#Final thouths
 
 
-User-Driven Firestore Data Architecture
-Overview
+## User-Driven Firestore Data Architecture
+
+### Overview
 This is a collaborative, crowd-sourced approach where users contribute new products organically. The system auto-generates keywords and manages categories intelligently.
 
-Complete User Flow
-Step 1: User Types Product Name
+### Complete User Flow
+### Step 1: User Types Product Name
+```bash
 Mobile App → User inputs "iPhone 15 Pro Max"
            ↓
 [Input field with real-time validation]
-Step 2: Check if Product Exists
+```
+
+### Step 2: Check if Product Exists
+```bash
 User finishes typing
      ↓
 App calls: GET /api/sync/product/exists?productName="iPhone 15 Pro Max"
@@ -92,7 +174,11 @@ Response:
   "productName": "iPhone 15 Pro Max",
   "exists": false  ← ✅ Can be added!
 }
-Step 3: Load Category Suggestions
+
+```
+
+
+### Step 3: Load Category Suggestions
 If product doesn't exist...
      ↓
 App calls: GET /api/sync/categories/suggestions?productName="iPhone 15 Pro Max"
@@ -336,3 +422,41 @@ The architecture is now perfectly balanced between:
 ✅ Complete transparency (you always know the source)
 
 This is production-grade! 🚀
+
+Infrastructure & Security
+Component	Configuration	Status
+Server Hostname	prod-api-01	✅ Active
+Primary User	mike	✅ Sudo Enabled
+SSH Key	vps_ml_key	✅ Passwordless
+Firewall (UFW)	Ports: 22 (Tailscale), 8080 (Public)	✅ Secured
+Private Network	Tailscale Mesh (Internal 100.x.x.x)	✅ Connected
+Exportar para Sheets
+
+3. GitHub Webhook Settings
+   Your repository is configured to trigger Jenkins via a secure Tailscale Funnel.
+* Payload URL: https://your-mac-node.tail-net.ts.net/github-webhook/
+* Content Type: application/json
+* Events: Just the push event
+* Secret: •••••••••••••••• (Configured in Jenkins)
+
+4. Systemd Service Definition
+   Located at /etc/systemd/system/myapp.service on your VPS:
+   Ini, TOML
+
+[Unit]
+Description=Spring Boot API Service
+After=network.target
+
+[Service]
+User=mike
+ExecStart=/usr/bin/java -Xmx2048m -jar /home/mike/cartshare/backend-0.0.1-SNAPSHOT.jar
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/mike/cartshare/google-key-vps.json
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+
+

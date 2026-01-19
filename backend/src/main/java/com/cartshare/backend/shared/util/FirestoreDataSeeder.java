@@ -77,7 +77,7 @@ public class FirestoreDataSeeder implements CommandLineRunner {
                             String categoryId = ProductCategoryMatcher.resolveCategory(name, keywords, row.get(1));
                             // We generate the search keywords here so they are available for the index
                             List<String> searchKeywords = importer.generateSearchKeywords(name);
-                            return new Product(name, categoryId, true, searchKeywords);
+                            return new Product(null,name, categoryId, true, searchKeywords);
                         }).toList();
 
                 importer.importProductsFromList(products);

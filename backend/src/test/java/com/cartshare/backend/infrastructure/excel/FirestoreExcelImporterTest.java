@@ -96,9 +96,9 @@ class FirestoreExcelImporterTest {
             mockedReader.when(() -> ExcelReader.toSafeId("Arroz Agulhão")).thenReturn("arroz_agulhao");
 
             mockedMatcher.when(() -> ProductCategoryMatcher.resolveCategory(
-                    "Arroz Agulhão",
-                    List.of(),
-                    "ALIMENTOS"
+                    eq("Arroz Agulhão"),
+                    anyList(),
+                    eq("ALIMENTOS")
             )).thenReturn("alimentos");
 
             when(firestore.batch()).thenReturn(writeBatch);
@@ -110,18 +110,17 @@ class FirestoreExcelImporterTest {
             importer.importProducts(inputStream, List.of());
 
             // Assert
-            ArgumentCaptor<Map<String, Object>> captor = ArgumentCaptor.forClass(Map.class);
+            ArgumentCaptor<Product> captor = ArgumentCaptor.forClass(Product.class);
             verify(writeBatch).set(any(DocumentReference.class), captor.capture());
 
-            Map<String, Object> saved = captor.getValue();
-            assertEquals("Arroz Agulhão", saved.get("productName"));
-            assertEquals("alimentos", saved.get("categoryId"));
-            assertEquals(true, saved.get("isOfficial")); // Products from Excel are official
+            Product saved = captor.getValue();
+            assertEquals("Arroz Agulhão", saved.productName());
+            assertEquals("alimentos", saved.categoryId());
+            assertTrue(saved.isOfficial());
 
-            @SuppressWarnings("unchecked")
-            List<String> keywords = (List<String>) saved.get("searchKeywords");
+            List<String> keywords = saved.searchKeywords();
             assertTrue(keywords.contains("arroz"));
-            assertTrue(keywords.contains("agulhao")); // Note: ã is converted to a
+            assertTrue(keywords.contains("agulhao"));
 
             verify(writeBatch).commit();
         }
@@ -168,8 +167,8 @@ class FirestoreExcelImporterTest {
         // Act
         importer.importKeywordsFromList(mockKeywords);
 
-        // Assert - Just verify the calls were made correctly
-        verify(writeBatch, times(3)).set(eq(documentReference), any());
+        // Assert
+        verify(writeBatch, times(3)).set(eq(documentReference), any(Keyword.class));
         verify(writeBatch, times(1)).commit();
     }
 
@@ -254,8 +253,8 @@ class FirestoreExcelImporterTest {
     void shouldImportProductsFromList() throws Exception {
         // Arrange
         List<Product> products = List.of(
-                new Product("Arroz", "alimentos", true, List.of("arroz")),
-                new Product("Feijão", "alimentos", true, List.of("feijao"))
+                new Product(null,"Arroz", "alimentos", true, List.of("arroz")),
+                new Product(null,"Feijão", "alimentos", true, List.of("feijao"))
         );
 
         when(firestore.batch()).thenReturn(writeBatch);
@@ -294,7 +293,7 @@ class FirestoreExcelImporterTest {
         // Arrange
         importer.setDryRun(true);
         List<Product> products = List.of(
-                new Product("Arroz", "alimentos", true, List.of("arroz"))
+                new Product(null,"Arroz", "alimentos", true, List.of("arroz"))
         );
 
         // Act

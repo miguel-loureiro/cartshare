@@ -1,9 +1,14 @@
 package com.cartshare.backend.api.v1;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class ContributeProductRequest {
 
     private static final String DEFAULT_CATEGORY_ID = "OUTROS";
 
+    @Getter
+    @Setter
     private String productName;
     private String categoryId; // Optional - null defaults to OUTROS
 
@@ -16,14 +21,6 @@ public class ContributeProductRequest {
         this.categoryId = (categoryId == null || categoryId.isBlank())
                 ? DEFAULT_CATEGORY_ID
                 : categoryId;
-    }
-
-    public String getProductName() {
-        return productName;
-    }
-
-    public void setProductName(String productName) {
-        this.productName = productName;
     }
 
     /**

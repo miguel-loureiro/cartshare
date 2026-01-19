@@ -52,7 +52,7 @@ class ShoppingDataValidationTest {
                         String name = r.get(0);
                         String catId = ExcelReader.toSafeId(r.get(1));
                         // Matches the 4-param constructor: name, categoryId, isOfficial, searchKeywords
-                        return new Product(name, catId, true, List.of());
+                        return Product.createOfficial(name, catId, List.of());
                     })
                     .toList();
         }
