@@ -13,20 +13,24 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
+import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SyncControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Mock
     private com.google.cloud.firestore.Firestore firestore;
@@ -136,49 +140,10 @@ class SyncControllerTest {
     // ===== CATEGORY SUGGESTIONS TESTS =====
 
     @Test
-    @DisplayName("getCategorySuggestions: Should return categories when name is valid")
-    void getCategorySuggestions_Success() throws Exception {
-        when(categoryService.getAllCategories()).thenReturn(List.of(new Category("C1", "Test", "Class", 1)));
-
-        ResponseEntity<?> response = syncController.getCategorySuggestions("Valid Product");
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        Map<String, Object> body = (Map<String, Object>) response.getBody();
-        assertThat(body).containsEntry("productName", "Valid Product");
-        assertThat(body).containsEntry("defaultCategory", "OUTROS");
-    }
-
-    @Test
     @DisplayName("getCategorySuggestions: Should return 400 when product name is blank")
     void getCategorySuggestions_InvalidInput() {
         ResponseEntity<?> response = syncController.getCategorySuggestions("   ");
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-    }
-
-    // ===== PRODUCTS BY TYPE TESTS =====
-
-    @Test
-    @DisplayName("getOfficialProducts: Should return list of official products")
-    void getOfficialProducts_Success() throws Exception {
-        when(productContributionService.getOfficialProducts()).thenReturn(List.of());
-
-        ResponseEntity<?> response = syncController.getOfficialProducts();
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        Map<String, Object> body = (Map<String, Object>) response.getBody();
-        assertThat(body).containsEntry("type", "official");
-    }
-
-    @Test
-    @DisplayName("getUserContributedProducts: Should return list of user products")
-    void getUserContributedProducts_Success() throws Exception {
-        when(productContributionService.getUserContributedProducts()).thenReturn(List.of());
-
-        ResponseEntity<?> response = syncController.getUserContributedProducts();
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        Map<String, Object> body = (Map<String, Object>) response.getBody();
-        assertThat(body).containsEntry("type", "user-contributed");
     }
 
     // ===== STATISTICS TESTS =====
@@ -235,4 +200,138 @@ class SyncControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+
+    @Test
+    @DisplayName("checkProductExists: Should return 200 and exists=true")
+    void checkProductExists_DirectCall() throws Exception {
+        // GIVEN
+        when(productContributionService.productExists("Apple")).thenReturn(true);
+
+        // WHEN
+        ResponseEntity<?> response = syncController.checkProductExists("Apple");
+
+        // THEN
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body.get("exists")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("getCategorySuggestions: Should return bad request for empty input")
+    void getCategorySuggestions_EmptyInput() {
+        // WHEN
+        ResponseEntity<?> response = syncController.getCategorySuggestions("  ");
+
+        // THEN
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("getOfficialProducts: Should handle service exceptions (500 error)")
+    void getOfficialProducts_HandleException() throws Exception {
+        // GIVEN
+        when(productContributionService.getOfficialProducts())
+                .thenThrow(new ExecutionException("DB Down", new RuntimeException()));
+
+        // WHEN
+        ResponseEntity<?> response = syncController.getOfficialProducts();
+
+        // THEN
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("getUserContributedProducts: Should return list of products")
+    void getUserContributedProducts_Success() throws Exception {
+        // GIVEN
+        List<Product> mockProducts = List.of(new Product("id", "Bread", "CAT", false, List.of()));
+        when(productContributionService.getUserContributedProducts()).thenReturn(mockProducts);
+
+        // WHEN
+        ResponseEntity<?> response = syncController.getUserContributedProducts();
+
+        // THEN
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body.get("count")).isEqualTo(1);
+        assertThat(body.get("type")).isEqualTo("user-contributed");
+    }
+
+    @Test
+    @DisplayName("getCategorySuggestions: Should return 200 and list of categories")
+    void getCategorySuggestions_Success() throws Exception {
+        // Arrange
+        List<Category> mockCats = List.of(new Category("CAT1", "Test Cat", "Class", 1));
+        when(categoryService.getAllCategories()).thenReturn(mockCats);
+
+        // Act
+        ResponseEntity<?> response = syncController.getCategorySuggestions("Banana");
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("productName", "Banana");
+        assertThat(body).containsEntry("defaultCategory", "OUTROS");
+        assertThat((List<?>) body.get("categories")).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getCategorySuggestions: Should return 500 when service fails")
+    void getCategorySuggestions_InternalError() throws Exception {
+        // Arrange
+        when(categoryService.getAllCategories()).thenThrow(new InterruptedException("Timeout"));
+
+        // Act
+        ResponseEntity<?> response = syncController.getCategorySuggestions("Banana");
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("getOfficialProducts: Should return 200 and official products list")
+    void getOfficialProducts_Success() throws Exception {
+        // Arrange
+        List<Product> officialList = List.of(Product.of("1", "Milk", "C1", true, List.of()));
+        when(productContributionService.getOfficialProducts()).thenReturn(officialList);
+
+        // Act
+        ResponseEntity<?> response = syncController.getOfficialProducts();
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("type", "official");
+        assertThat(body).containsEntry("count", 1);
+    }
+
+    @Test
+    @DisplayName("getUserContributedProducts: Should return 500 when service fails")
+    void getUserContributedProducts_InternalError() throws Exception {
+        // Arrange
+        when(productContributionService.getUserContributedProducts())
+                .thenThrow(new ExecutionException(new RuntimeException("DB Error")));
+
+        // Act
+        ResponseEntity<?> response = syncController.getUserContributedProducts();
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    @DisplayName("checkProductExists: Should return 500 when productExists service fails")
+    void checkProductExists_InternalError_Coverage() throws Exception {
+        // Arrange
+        when(productContributionService.productExists(anyString()))
+                .thenThrow(new InterruptedException("Interrupted"));
+
+        // Act
+        ResponseEntity<?> response = syncController.checkProductExists("TestProduct");
+
+        // Assert
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("error", "Failed to check product");
+    }
 }

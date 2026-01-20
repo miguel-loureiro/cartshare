@@ -43,7 +43,7 @@ public class FirestoreDataSeeder implements CommandLineRunner {
                 categories = ExcelReader.read(is).stream()
                         .filter(row -> row.size() >= 4)
                         .map(row -> new Category(
-                                ExcelReader.toSafeId(row.get(0)),
+                                ExcelReader.toSafeId(row.getFirst()),
                                 row.get(1),
                                 ExcelReader.toSafeId(row.get(2)),
                                 Integer.parseInt(row.get(3))
@@ -59,7 +59,7 @@ public class FirestoreDataSeeder implements CommandLineRunner {
             try (InputStream is = kwRes.getInputStream()) {
                 keywords = ExcelReader.read(is).stream()
                         .filter(row -> row.size() >= 2)
-                        .map(row -> new Keyword(row.get(0), ExcelReader.toSafeId(row.get(1))))
+                        .map(row -> new Keyword(row.getFirst(), ExcelReader.toSafeId(row.get(1))))
                         .toList();
 
                 importer.importKeywordsFromList(keywords);
