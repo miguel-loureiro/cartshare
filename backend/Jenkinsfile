@@ -1,42 +1,86 @@
 pipeline {
     agent any
+
     environment {
-        // Use your Public IP or Tailscale IP.
-        // 77.90.39.240 is your Public IPv4.
         REMOTE_HOST = '100.106.60.43'
         REMOTE_USER = 'mike'
         REMOTE_PATH = '/home/mike/cartshare'
-        SSH_CRED_ID = 'vps4g_ml_key' // Ensure this Jenkins Credential contains your 'vps4g_ml_key'
+        SSH_CRED_ID = 'vps4g_ml_key'
         JAR_NAME    = 'backend-0.0.1-SNAPSHOT.jar'
+
+        SONAR_TOKEN        = credentials('sonarcloud-token')
+        SONAR_ORG          = 'cartshare'
+        SONAR_PROJECT_KEY  = 'cartshare_cartshare-backend'
+        SONAR_HOST_URL     = 'https://sonarcloud.io'
     }
+
     stages {
+
         stage('Build') {
             steps {
-                echo 'Building with Gradle...'
+                echo 'Building backend JAR...'
                 dir('backend') {
                     sh 'chmod +x gradlew'
                     sh './gradlew clean build -x test'
                 }
             }
         }
+
         stage('Deploy') {
             steps {
                 sshagent([env.SSH_CRED_ID]) {
                     echo "Uploading JAR to ${env.REMOTE_HOST}..."
-                    // rsync is better than scp for speed!
-                    sh "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' backend/build/libs/${env.JAR_NAME} ${env.REMOTE_USER}@${env.REMOTE_HOST}:${env.REMOTE_PATH}/"
 
-                    echo 'Restarting Service on VPS...'
-                    // Note: Ensure the service name matches exactly what you created (myapp.service)
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'sudo systemctl restart cartshare.service'"
+                    sh """
+                        rsync -avz -e 'ssh -o StrictHostKeyChecking=no' \
+                        backend/build/libs/${env.JAR_NAME} \
+                        ${env.REMOTE_USER}@${env.REMOTE_HOST}:${env.REMOTE_PATH}/
+                    """
+
+                    echo 'Restarting service on VPS...'
+                    sh """
+                        ssh -o StrictHostKeyChecking=no \
+                        ${env.REMOTE_USER}@${env.REMOTE_HOST} \
+                        'sudo systemctl restart cartshare.service'
+                    """
                 }
             }
         }
+
         stage('Verify') {
             steps {
                 sshagent([env.SSH_CRED_ID]) {
-                    echo 'Checking Service Status...'
-                    sh "ssh -o StrictHostKeyChecking=no ${env.REMOTE_USER}@${env.REMOTE_HOST} 'systemctl status cartshare.service --no-pager'"
+                    echo 'Verifying service status...'
+                    sh """
+                        ssh -o StrictHostKeyChecking=no \
+                        ${env.REMOTE_USER}@${env.REMOTE_HOST} \
+                        'systemctl status cartshare.service --no-pager'
+                    """
+                }
+            }
+        }
+
+        stage('SonarCloud Analysis') {
+            steps {
+                dir('backend') {
+                    sh """
+                        ./gradlew test jacocoTestReport sonarqube \
+                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                          -Dsonar.organization=${SONAR_ORG} \
+                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.token=$SONAR_TOKEN
+                    """
+                }
+
+                script {
+                    def sonarUrl =
+                        "${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
+
+                    echo "📊 SonarCloud Dashboard:"
+                    echo sonarUrl
+
+                    currentBuild.description =
+                        "<a href='${sonarUrl}' target='_blank'>SonarCloud Report</a>"
                 }
             }
         }

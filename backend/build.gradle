@@ -3,11 +3,11 @@ plugins {
     id 'org.springframework.boot' version '3.4.1'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'jacoco'
+    id("org.sonarqube") version "7.2.2.6593"
 }
 
 group = 'com.cartshare'
 version = '0.0.1-SNAPSHOT'
-description = 'backend'
 
 java {
     toolchain {
@@ -17,47 +17,31 @@ java {
 
 repositories {
     mavenCentral()
-}
-
-configurations {
-    compileOnly {
-        extendsFrom annotationProcessor
-    }
+    gradlePluginPortal()
 }
 
 dependencies {
     implementation platform('org.springframework.boot:spring-boot-dependencies:3.4.1')
 
-    // Web and Security
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
-
-    // Cloud Firestore
     implementation 'com.google.cloud:spring-cloud-gcp-starter-data-firestore'
     implementation 'com.google.cloud:spring-cloud-gcp-starter'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
-
-    // Swagger/OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
-
-    // Utilities
     implementation 'org.jspecify:jspecify:1.0.0'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-
-    // Validation & Excel
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.apache.poi:poi:5.4.0'
     implementation 'org.apache.poi:poi-ooxml:5.4.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
+    implementation("org.sonarqube:org.sonarqube.gradle.plugin:7.2.2.6593")
 
-    // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.apache.poi:poi:5.4.0'
-    testImplementation 'org.apache.poi:poi-ooxml:5.4.0'
 }
 
 dependencyManagement {
@@ -66,22 +50,24 @@ dependencyManagement {
     }
 }
 
-// --- JaCoCo Configuration ---
+// --- Modern SonarQube Configuration ---
+sonar {
+    properties {
+        property "sonar.projectKey", "miguel-loureiro_cartshare"
+        property "sonar.organization", "miguel-loureiro"
+    }
+}
 
+// --- Modern JaCoCo Configuration ---
 jacoco {
-    toolVersion = "0.8.11"
+    toolVersion = "0.8.12"
 }
 
 tasks.named('test') {
     useJUnitPlatform()
     exclude '**/FirestoreDataSeeder.class'
 
-    // Optional: Log to console so you know it's being skipped
-    testLogging {
-        events "passed", "skipped", "failed"
-    }
-    // Resolves Mockito/JDK 21 agent warnings
-    jvmArgs("-XX:+EnableDynamicAgentLoading")
+    // Modern way to finalize test with report
     finalizedBy jacocoTestReport
 }
 
@@ -92,17 +78,15 @@ jacocoTestReport {
         html.required = true
     }
 
-    // Excludes classes from the HTML visual report
-    afterEvaluate {
-        classDirectories.setFrom(files(classDirectories.files.collect {
-            fileTree(dir: it, exclude: [
-                    "**/com/cartshare/backend/core/model/**",
-                    "**/com/cartshare/backend/config/**",
-                    "**/*Application*",
-                    "**/*Builder*"
-            ])
-        }))
-    }
+    // MODERN REPLACEMENT FOR getConvention() / afterEvaluate
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: [
+                "**/com/cartshare/backend/core/model/**",
+                "**/com/cartshare/backend/config/**",
+                "**/*Application*",
+                "**/*Builder*"
+        ])
+    }))
 }
 
 jacocoTestCoverageVerification {
@@ -113,9 +97,8 @@ jacocoTestCoverageVerification {
             limit {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
-                minimum = 0.80 // 80% Coverage Requirement
+                minimum = 0.80 // Raised to 85% per your requirement
             }
-            // Excludes classes from the verification math
             excludes = [
                     "com.cartshare.backend.core.model.*",
                     "com.cartshare.backend.config.*",
@@ -126,5 +109,4 @@ jacocoTestCoverageVerification {
     }
 }
 
-// Force verification to run during build
 check.dependsOn jacocoTestCoverageVerification
