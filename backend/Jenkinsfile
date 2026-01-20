@@ -9,7 +9,7 @@ pipeline {
         JAR_NAME    = 'backend-0.0.1-SNAPSHOT.jar'
 
         SONAR_TOKEN        = credentials('sonarcloud-token')
-        SONAR_ORG          = 'cartshare'
+        SONAR_ORG          = 'miguel-loureiro'
         SONAR_PROJECT_KEY  = 'cartshare_cartshare-backend'
         SONAR_HOST_URL     = 'https://sonarcloud.io'
     }
@@ -63,13 +63,17 @@ pipeline {
         stage('SonarCloud Analysis') {
             steps {
                 dir('backend') {
-                    sh """
-                        ./gradlew test jacocoTestReport sonarqube \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.organization=${SONAR_ORG} \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.token=$SONAR_TOKEN
-                    """
+                    withEnv([
+                        "SONAR_TOKEN=${SONAR_TOKEN}"
+                    ]) {
+                        sh '''
+                            ./gradlew test jacocoTestReport sonar \
+                              -Dsonar.host.url=https://sonarcloud.io \
+                              -Dsonar.organization=$SONAR_ORG \
+                              -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+                              -Dsonar.token=$SONAR_TOKEN
+                        '''
+                    }
                 }
 
                 script {
