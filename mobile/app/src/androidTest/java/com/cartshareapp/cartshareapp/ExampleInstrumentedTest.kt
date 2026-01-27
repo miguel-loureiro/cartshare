@@ -1,4 +1,4 @@
-package com.example.cartshareapp
+package com.cartshareapp.cartshareapp
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

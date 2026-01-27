@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "572462600114",
+    "project_id": "cartshare-484109",
+    "storage_bucket": "cartshare-484109.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:572462600114:android:8065b1bf2c4c9d1e741eab",
+        "android_client_info": {
+          "package_name": "com.cartshareapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "572462600114-1v3c9ocnfcqac1tbdu10evspcdogo374.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cartshareapp",
+            "certificate_hash": "c993d05270f704a0d71fb3b142cce43a79790f06"
+          }
+        },
+        {
+          "client_id": "572462600114-f4goen6i393vbiaq1shghfvjtnhv33vj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDhwUv_eJ4I4zOoSHhK8hNHA66Us9nRL60"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "572462600114-f4goen6i393vbiaq1shghfvjtnhv33vj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

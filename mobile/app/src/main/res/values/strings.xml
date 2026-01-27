@@ -1,3 +1,29 @@
 <resources>
     <string name="app_name">CartShareApp</string>
+    <string name="gdpr_policy_text">
+    <b>CARTSHARE PRIVACY POLICY</b>\n
+    Last Updated: January 2026\n\n
+
+    <b>1. DATA CONTROLLER</b>\n
+    CartShare is the data controller for your personal data. Your privacy is protected under the General Data Protection Regulation (GDPR).\n\n
+
+    <b>2. DATA WE COLLECT</b>\n
+    We only process data necessary for the functionality of the app:\n
+    • Identity: Name and Google ID provided via Google Auth.\n
+    • Contact: Email address for account identification.\n
+    • Usage: Shopping list data created by you.\n\n
+
+    <b>3. LEGAL BASIS FOR PROCESSING</b>\n
+    We process your data based on <i>Art. 6(1)(b) GDPR</i> (Performance of a Contract) to provide the shopping list sharing service.\n\n
+
+    <b>4. DATA STORAGE AND SECURITY</b>\n
+    Your data is stored securely using Google Firebase. We ensure that data transfers outside the EEA are protected by Standard Contractual Clauses (SCCs).\n\n
+
+    <b>5. YOUR RIGHTS</b>\n
+    Under GDPR, you have the right to access, rectify, or delete your data at any time. To exercise your "Right to Erasure," use the "Delete Account" button in the Profile settings. This will permanently purge your data from our active servers.\n\n
+
+    <b>6. DATA RETENTION</b>\n
+    Data is retained only as long as your account is active. Once an account is deleted, all personal identifiers are removed in accordance with EU directives.
+</string>
 </resources>
+

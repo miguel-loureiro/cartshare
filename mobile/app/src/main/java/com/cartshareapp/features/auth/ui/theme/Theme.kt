@@ -1,4 +1,4 @@
-package com.cartshareapp.ui.theme
+package com.cartshareapp.features.auth.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

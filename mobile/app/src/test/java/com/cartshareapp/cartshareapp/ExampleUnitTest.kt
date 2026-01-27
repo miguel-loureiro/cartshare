@@ -1,4 +1,4 @@
-package com.example.cartshareapp
+package com.cartshareapp.cartshareapp
 
 import org.junit.Test
 
