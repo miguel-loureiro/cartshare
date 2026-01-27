@@ -1,26 +1,18 @@
 package com.cartshare.backend.api.controller;
 
 import com.cartshare.backend.api.v1.ContributeProductRequest;
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
-import com.cartshare.backend.core.service.AutocompleteService;
-import com.cartshare.backend.core.service.CategoryService;
 import com.cartshare.backend.core.service.KeywordService;
 import com.cartshare.backend.core.service.ProductContributionService;
-import com.cartshare.backend.infrastructure.excel.FirestoreExcelImporter;
 import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.QuerySnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 @Slf4j
@@ -33,12 +25,8 @@ public class SyncController {
     private final Firestore firestore;
     private final ProductContributionService productContributionService;
     private final KeywordService keywordService;
-    private final CategoryService categoryService;
-
-    private static final String DEFAULT_CATEGORY = "OUTROS";
 
     // ===== DATA SYNC =====
-
     /**
      * Initial sync: Download all data for mobile app
      */
@@ -46,21 +34,17 @@ public class SyncController {
     public ResponseEntity<?> initialSync() {
         try {
             log.info("📱 Initial sync requested");
-
-            List<Category> categories = categoryService.getAllCategories();
             List<Keyword> keywords = keywordService.getAllKeywords();
             List<Product> products = productContributionService.getAllProducts();
-
             Map<String, Object> syncData = Map.of(
-                    "categories", categories,
                     "keywords", keywords,
                     "products", products,
                     "timestamp", System.currentTimeMillis(),
                     "syncStatus", "success"
             );
 
-            log.info("✅ Initial sync: {} categories, {} keywords, {} products",
-                    categories.size(), keywords.size(), products.size());
+            log.info("✅ Initial sync: {} keywords, {} products",
+                    keywords.size(), products.size());
 
             return ResponseEntity.ok(syncData);
 
@@ -121,41 +105,12 @@ public class SyncController {
             log.error("❌ Error checking product: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to check product"));
+
         }
+
     }
 
-    // ===== CATEGORIES =====
 
-    /**
-     * Get category suggestions for new product
-     */
-    @GetMapping("/categories/suggestions")
-    public ResponseEntity<?> getCategorySuggestions(@RequestParam String productName) {
-        try {
-            if (productName == null || productName.trim().isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Product name is required"));
-            }
-
-            log.info("🎯 Category suggestions for: {}", productName);
-
-            List<Category> categories = categoryService.getAllCategories();
-
-            Map<String, Object> response = Map.of(
-                    "productName", productName,
-                    "categories", categories,
-                    "defaultCategory", DEFAULT_CATEGORY,
-                    "message", "Select a category or use default (OUTROS)"
-            );
-
-            return ResponseEntity.ok(response);
-
-        } catch (InterruptedException | ExecutionException e) {
-            log.error("❌ Error fetching categories: ", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to fetch categories"));
-        }
-    }
 
     // ===== PRODUCTS BY TYPE =====
 
@@ -205,24 +160,20 @@ public class SyncController {
     @GetMapping("/stats")
     public ResponseEntity<?> getDataStats() {
         try {
-            long categoriesCount = categoryService.getCategoryCount();
             long keywordsCount = keywordService.getKeywordCount();
             Map<String, Object> productsStats = productContributionService.getProductStats();
-
             long totalProducts = (long) productsStats.get("total");
             long officialProducts = (long) productsStats.get("official");
             long userContributed = (long) productsStats.get("userContributed");
-
             Map<String, Object> stats = Map.of(
                     "timestamp", System.currentTimeMillis(),
-                    "categoriesCount", categoriesCount,
                     "keywordsCount", keywordsCount,
                     "productsCount", totalProducts,
                     "productsBreakdown", Map.of(
                             "official", officialProducts,
                             "userContributed", userContributed
                     ),
-                    "totalRecords", categoriesCount + keywordsCount + totalProducts
+                    "totalRecords", keywordsCount + totalProducts
             );
 
             return ResponseEntity.ok(stats);
@@ -256,7 +207,6 @@ public class SyncController {
                 "message", "Product added successfully",
                 "productId", product.id(),
                 "productName", product.productName(),
-                "categoryId", product.categoryId(),
                 "isOfficial", product.isOfficial(),
                 "generatedKeywords", product.searchKeywords(),
                 "keywordCount", product.searchKeywords().size()

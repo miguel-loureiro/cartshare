@@ -16,27 +16,17 @@ class KeywordTest {
         String expectedCategory = "tech-001";
 
         // Act
-        Keyword keyword = new Keyword(expectedKeyword, expectedCategory);
+        Keyword keyword = new Keyword(expectedKeyword);
 
         // Assert
         assertThat(keyword.keyword()).isEqualTo(expectedKeyword);
-        assertThat(keyword.categoryId()).isEqualTo(expectedCategory);
-    }
-
-    @Test
-    @DisplayName("Should throw NullPointerException when categoryId is null")
-    void shouldThrowExceptionWhenCategoryIsNull() {
-        // Act & Assert
-        assertThrows(NullPointerException.class, () -> {
-            new Keyword("test-keyword", null);
-        }, "categoryId is marked @NonNull but did not throw exception on null");
     }
 
     @Test
     @DisplayName("Should verify equality and hashcode for identical data")
     void testEquality() {
-        Keyword k1 = new Keyword("cloud", "infrastructure");
-        Keyword k2 = new Keyword("cloud", "infrastructure");
+        Keyword k1 = new Keyword("cloud");
+        Keyword k2 = new Keyword("cloud");
 
         assertThat(k1).isEqualTo(k2);
         assertThat(k1.hashCode()).isEqualTo(k2.hashCode());
@@ -45,8 +35,8 @@ class KeywordTest {
     @Test
     @DisplayName("Should verify inequality for different data")
     void testInequality() {
-        Keyword k1 = new Keyword("cloud", "infrastructure");
-        Keyword k2 = new Keyword("edge", "infrastructure");
+        Keyword k1 = new Keyword("cloud");
+        Keyword k2 = new Keyword("edge");
 
         assertThat(k1).isNotEqualTo(k2);
     }

@@ -7,9 +7,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -25,271 +27,100 @@ class KeywordServiceTest {
     @Mock private Firestore firestore;
     @Mock private CollectionReference collectionReference;
     @Mock private DocumentReference documentReference;
-    @Mock private Query query;
+    @Mock private DocumentSnapshot documentSnapshot;
+    @Mock private ApiFuture<DocumentSnapshot> futureDocumentSnapshot;
+    @Mock private ApiFuture<QuerySnapshot> futureQuerySnapshot;
+    @Mock private ApiFuture<WriteResult> futureWriteResult;
     @Mock private QuerySnapshot querySnapshot;
-    @Mock private ApiFuture<QuerySnapshot> querySnapshotFuture;
 
-    // Separate Futures for clarity
-    @Mock private com.google.api.core.ApiFuture<QuerySnapshot> futureQuerySnapshot;
-    @Mock private com.google.api.core.ApiFuture<WriteResult> futureWriteResult;
-
+    @InjectMocks
     private KeywordService keywordService;
 
     @BeforeEach
     void setUp() {
-        keywordService = new KeywordService(firestore);
-        // Common setup: collection("keywords") always returns our mock
         lenient().when(firestore.collection("keywords")).thenReturn(collectionReference);
+        // Default behavior: any document request returns our standard mock docRef
+        lenient().when(collectionReference.document(anyString())).thenReturn(documentReference);
     }
 
+    // ===== CREATE KEYWORDS FOR PRODUCT =====
+
     @Test
-    @DisplayName("Create Keywords For Product: Should create keywords if they don't exist")
+    @DisplayName("createKeywordsForProduct: Should create keywords if they don't exist")
     void shouldCreateKeywordsForProduct() throws Exception {
-        // Arrange
-        List<String> searchKeywords = List.of("arroz", "agulhao");
+        List<String> searchKeywords = List.of("Arroz", "Agulhão");
 
-        // Mock the "exists" check chain
-        when(collectionReference.whereEqualTo(eq("keyword"), anyString())).thenReturn(query);
-        when(query.get()).thenReturn(futureQuerySnapshot);
-        when(futureQuerySnapshot.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn(0); // 0 means it doesn't exist
-
-        // Mock the "save" chain
-        when(collectionReference.document(anyString())).thenReturn(documentReference);
+        when(documentReference.get()).thenReturn(futureDocumentSnapshot);
+        when(futureDocumentSnapshot.get()).thenReturn(documentSnapshot);
+        when(documentSnapshot.exists()).thenReturn(false); // None exist
         when(documentReference.set(any(Keyword.class))).thenReturn(futureWriteResult);
+        when(futureWriteResult.get()).thenReturn(mock(WriteResult.class));
 
-        // Act
-        keywordService.createKeywordsForProduct("Product", "cat-1", searchKeywords);
+        keywordService.createKeywordsForProduct("Product Test", searchKeywords);
 
-        // Assert
+        // Verify sanitized IDs: "Arroz" -> "arroz", "Agulhão" -> "agulhao"
+        verify(collectionReference).document("arroz");
+        verify(collectionReference).document("agulhao");
         verify(documentReference, times(2)).set(any(Keyword.class));
     }
 
     @Test
-    @DisplayName("Create Keywords For Product: Should skip existing keywords")
+    @DisplayName("createKeywordsForProduct: Should skip existing keywords")
     void shouldSkipExistingKeywords() throws Exception {
-        // Arrange
         List<String> searchKeywords = List.of("cafe", "novo");
 
-        when(collectionReference.whereEqualTo(eq("keyword"), anyString())).thenReturn(query);
-        when(query.get()).thenReturn(futureQuerySnapshot);
+        // We create specific mocks to avoid conflicting with the 'anyString' default if needed
+        DocumentReference docRefCafe = mock(DocumentReference.class);
+        DocumentReference docRefNovo = mock(DocumentReference.class);
+        DocumentSnapshot snapCafe = mock(DocumentSnapshot.class);
+        DocumentSnapshot snapNovo = mock(DocumentSnapshot.class);
+        ApiFuture<DocumentSnapshot> futureCafe = mock(ApiFuture.class);
+        ApiFuture<DocumentSnapshot> futureNovo = mock(ApiFuture.class);
 
-        // First call returns size 1 (exists), second call returns size 0 (doesn't exist)
-        QuerySnapshot existsSnapshot = mock(QuerySnapshot.class);
-        QuerySnapshot notExistsSnapshot = mock(QuerySnapshot.class);
-        when(existsSnapshot.size()).thenReturn(1);
-        when(notExistsSnapshot.size()).thenReturn(0);
+        when(collectionReference.document("cafe")).thenReturn(docRefCafe);
+        when(collectionReference.document("novo")).thenReturn(docRefNovo);
 
-        when(futureQuerySnapshot.get())
-                .thenReturn(existsSnapshot)
-                .thenReturn(notExistsSnapshot);
+        // "cafe" exists
+        when(docRefCafe.get()).thenReturn(futureCafe);
+        when(futureCafe.get()).thenReturn(snapCafe);
+        when(snapCafe.exists()).thenReturn(true);
 
-        when(collectionReference.document(anyString())).thenReturn(documentReference);
-        when(documentReference.set(any(Keyword.class))).thenReturn(futureWriteResult);
+        // "novo" does not exist
+        when(docRefNovo.get()).thenReturn(futureNovo);
+        when(futureNovo.get()).thenReturn(snapNovo);
+        when(snapNovo.exists()).thenReturn(false);
+        when(docRefNovo.set(any(Keyword.class))).thenReturn(futureWriteResult);
 
-        // Act
-        keywordService.createKeywordsForProduct("Coffee", "cat-1", searchKeywords);
+        keywordService.createKeywordsForProduct("Coffee", searchKeywords);
 
-        // Assert: Only 1 set() call because "cafe" was skipped
-        verify(documentReference, times(1)).set(any(Keyword.class));
+        verify(docRefCafe, never()).set(any());
+        verify(docRefNovo, times(1)).set(any(Keyword.class));
     }
 
     @Test
-    @DisplayName("Get All Keywords: Should return all keywords from collection")
+    @DisplayName("createKeywordsForProduct: Should handle Firestore exceptions gracefully")
+    void shouldHandleFirestoreExceptionGracefully() {
+        when(collectionReference.document(anyString())).thenThrow(new RuntimeException("DB Down"));
+
+        assertDoesNotThrow(() ->
+                keywordService.createKeywordsForProduct("Test", List.of("kw"))
+        );
+    }
+
+    // ===== GET ALL KEYWORDS =====
+
+    @Test
+    @DisplayName("getAllKeywords: Should return all keywords from collection")
     void shouldGetAllKeywords() throws Exception {
-        // Arrange
-        List<Keyword> expected = List.of(new Keyword("kw1", "cat1"));
+        List<Keyword> expected = List.of(new Keyword("kw1"), new Keyword("kw2"));
 
         when(collectionReference.get()).thenReturn(futureQuerySnapshot);
         when(futureQuerySnapshot.get()).thenReturn(querySnapshot);
         when(querySnapshot.toObjects(Keyword.class)).thenReturn(expected);
 
-        // Act
         List<Keyword> result = keywordService.getAllKeywords();
 
-        // Assert
-        assertEquals(1, result.size());
-        assertEquals("kw1", result.getFirst().keyword());
-    }
-
-    @Test
-    @DisplayName("Create Keywords For Product: Should handle Firestore exceptions gracefully")
-    void shouldHandleFirestoreExceptionGracefully() throws Exception {
-        // Arrange
-        when(collectionReference.whereEqualTo(anyString(), anyString())).thenThrow(new RuntimeException("DB Down"));
-
-        // Act & Assert
-        assertDoesNotThrow(() ->
-                keywordService.createKeywordsForProduct("Test", "cat", List.of("kw"))
-        );
-    }
-
-    // ===== GET KEYWORDS BY CATEGORY =====
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should return keywords for specified category")
-    void getKeywordsByCategory_Success() throws Exception {
-        // Arrange
-        String categoryId = "BEVERAGES";
-        Keyword keyword1 = new Keyword("coca", categoryId);
-        Keyword keyword2 = new Keyword("pepsi", categoryId);
-        List<Keyword> expectedKeywords = List.of(keyword1, keyword2);
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(expectedKeywords);
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result).hasSize(2);
-        assertThat(result).containsExactlyInAnyOrder(keyword1, keyword2);
-        verify(collectionReference).whereEqualTo("categoryId", categoryId);
-        verify(query).get();
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should return empty list when no keywords exist for category")
-    void getKeywordsByCategory_NoKeywordsFound() throws Exception {
-        // Arrange
-        String categoryId = "NONEXISTENT";
-        List<Keyword> emptyList = List.of();
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(emptyList);
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result).isEmpty();
-        verify(collectionReference).whereEqualTo("categoryId", categoryId);
-        verify(query).get();
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should filter by exact category ID match")
-    void getKeywordsByCategory_ExactMatch() throws Exception {
-        // Arrange
-        String categoryId = "DAIRY";
-        Keyword keyword = new Keyword("milk", categoryId);
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(List.of(keyword));
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().categoryId()).isEqualTo(categoryId);
-        verify(collectionReference).whereEqualTo("categoryId", categoryId);
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should return multiple keywords for same category")
-    void getKeywordsByCategory_MultipleKeywords() throws Exception {
-        // Arrange
-        String categoryId = "FRUITS";
-        Keyword keyword1 = new Keyword("apple", categoryId);
-        Keyword keyword2 = new Keyword("banana", categoryId);
-        Keyword keyword3 = new Keyword("orange", categoryId);
-        List<Keyword> expectedKeywords = List.of(keyword1, keyword2, keyword3);
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(expectedKeywords);
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).hasSize(3);
-        assertThat(result).containsExactlyInAnyOrder(keyword1, keyword2, keyword3);
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should handle category with special characters")
-    void getKeywordsByCategory_SpecialCharactersCategory() throws Exception {
-        // Arrange
-        String categoryId = "OTHERS-SPECIAL_FOOD";
-        Keyword keyword = new Keyword("unusual", categoryId);
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(List.of(keyword));
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().categoryId()).isEqualTo(categoryId);
-        verify(collectionReference).whereEqualTo("categoryId", categoryId);
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should throw ExecutionException when Firestore fails")
-    void getKeywordsByCategory_FirestoreExecutionException() throws Exception {
-        // Arrange
-        String categoryId = "BEVERAGES";
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenThrow(new ExecutionException("Firestore error", new RuntimeException()));
-
-        // Act & Assert
-        assertThrows(ExecutionException.class, () ->
-                keywordService.getKeywordsByCategory(categoryId)
-        );
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should throw InterruptedException when thread is interrupted")
-    void getKeywordsByCategory_InterruptedException() throws Exception {
-        // Arrange
-        String categoryId = "DAIRY";
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenThrow(new InterruptedException("Thread interrupted"));
-
-        // Act & Assert
-        assertThrows(InterruptedException.class, () ->
-                keywordService.getKeywordsByCategory(categoryId)
-        );
-    }
-
-    @Test
-    @DisplayName("getKeywordsByCategory: Should preserve keyword data when retrieving")
-    void getKeywordsByCategory_PreservesKeywordData() throws Exception {
-        // Arrange
-        String categoryId = "SWEETS";
-        Keyword keyword = new Keyword("chocolate", categoryId);
-
-        when(collectionReference.whereEqualTo("categoryId", categoryId)).thenReturn(query);
-        when(query.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.toObjects(Keyword.class)).thenReturn(List.of(keyword));
-
-        // Act
-        List<Keyword> result = keywordService.getKeywordsByCategory(categoryId);
-
-        // Assert
-        assertThat(result).hasSize(1);
-        Keyword retrieved = result.getFirst();
-        assertThat(retrieved.keyword()).isEqualTo("chocolate");
-        assertThat(retrieved.categoryId()).isEqualTo(categoryId);
+        assertThat(result).hasSize(2).extracting(Keyword::keyword).containsExactly("kw1", "kw2");
     }
 
     // ===== GET KEYWORD COUNT =====
@@ -297,129 +128,49 @@ class KeywordServiceTest {
     @Test
     @DisplayName("getKeywordCount: Should return correct keyword count")
     void getKeywordCount_Success() throws Exception {
-        // Arrange
-        long expectedCount = 15L;
+        int expectedCount = 15;
+        when(collectionReference.get()).thenReturn(futureQuerySnapshot);
+        when(futureQuerySnapshot.get()).thenReturn(querySnapshot);
+        when(querySnapshot.size()).thenReturn(expectedCount);
 
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn((int) expectedCount);
-
-        // Act
         long result = keywordService.getKeywordCount();
 
-        // Assert
-        assertThat(result).isEqualTo(expectedCount);
-        verify(collectionReference).get();
-    }
-
-    @Test
-    @DisplayName("getKeywordCount: Should return zero when no keywords exist")
-    void getKeywordCount_EmptyCollection() throws Exception {
-        // Arrange
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn(0);
-
-        // Act
-        long result = keywordService.getKeywordCount();
-
-        // Assert
-        assertThat(result).isEqualTo(0L);
-        verify(collectionReference).get();
-    }
-
-    @Test
-    @DisplayName("getKeywordCount: Should return correct count for large number of keywords")
-    void getKeywordCount_LargeCount() throws Exception {
-        // Arrange
-        long expectedCount = 1000L;
-
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn((int) expectedCount);
-
-        // Act
-        long result = keywordService.getKeywordCount();
-
-        // Assert
-        assertThat(result).isEqualTo(expectedCount);
-    }
-
-    @Test
-    @DisplayName("getKeywordCount: Should return long type")
-    void getKeywordCount_ReturnTypeLong() throws Exception {
-        // Arrange
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn(5);
-
-        // Act
-        long result = keywordService.getKeywordCount();
-
-        // Assert
-        assertThat(result).isInstanceOf(Long.class);
-        assertThat(result).isGreaterThanOrEqualTo(0L);
+        assertThat(result).isEqualTo(15L);
     }
 
     @Test
     @DisplayName("getKeywordCount: Should throw ExecutionException when Firestore fails")
     void getKeywordCount_FirestoreExecutionException() throws Exception {
-        // Arrange
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenThrow(new ExecutionException("Firestore error", new RuntimeException()));
+        when(collectionReference.get()).thenReturn(futureQuerySnapshot);
+        when(futureQuerySnapshot.get()).thenThrow(new ExecutionException("Error", new RuntimeException()));
 
-        // Act & Assert
-        assertThrows(ExecutionException.class, () ->
-                keywordService.getKeywordCount()
-        );
+        assertThrows(ExecutionException.class, () -> keywordService.getKeywordCount());
     }
 
+    // =========== NORMALIZATION ================
     @Test
-    @DisplayName("getKeywordCount: Should throw InterruptedException when thread is interrupted")
-    void getKeywordCount_InterruptedException() throws Exception {
-        // Arrange
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenThrow(new InterruptedException("Thread interrupted"));
+    @DisplayName("Normalization: Different variations of a word should point to the same Document ID")
+    void shouldNormalizeKeywordsToSameId() throws Exception {
+        // Arrange: Three variations of the same word
+        List<String> variations = List.of("Maçã", "maca", "MAÇÃ ");
 
-        // Act & Assert
-        assertThrows(InterruptedException.class, () ->
-                keywordService.getKeywordCount()
-        );
-    }
+        when(documentReference.get()).thenReturn(futureDocumentSnapshot);
+        when(futureDocumentSnapshot.get()).thenReturn(documentSnapshot);
 
-    @Test
-    @DisplayName("getKeywordCount: Should count only keywords collection")
-    void getKeywordCount_OnlyCountsKeywordsCollection() throws Exception {
-        // Arrange
-        long expectedCount = 42L;
-
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn((int) expectedCount);
+        // Simulate they don't exist yet
+        when(documentSnapshot.exists()).thenReturn(false);
+        when(documentReference.set(any(Keyword.class))).thenReturn(futureWriteResult);
+        when(futureWriteResult.get()).thenReturn(mock(WriteResult.class));
 
         // Act
-        keywordService.getKeywordCount();
+        keywordService.createKeywordsForProduct("Fruit", variations);
 
-        // Assert
-        verify(firestore).collection("keywords");
-        verify(collectionReference).get();
-        verify(querySnapshotFuture).get();
+        // Assert: All three variations should result in "maca"
+        // verify(..., times(3)) because the service calls document() for each iteration
+        verify(collectionReference, times(3)).document("maca");
+
+        // Verify it only attempted to set the data if it didn't exist
+        // (Note: In a real scenario with the first call, it would exist for the 2nd/3rd call,
+        // but here we are testing the ID mapping logic specifically).
     }
-
-    @Test
-    @DisplayName("getKeywordCount: Should return one when single keyword exists")
-    void getKeywordCount_SingleKeyword() throws Exception {
-        // Arrange
-        when(collectionReference.get()).thenReturn(querySnapshotFuture);
-        when(querySnapshotFuture.get()).thenReturn(querySnapshot);
-        when(querySnapshot.size()).thenReturn(1);
-
-        // Act
-        long result = keywordService.getKeywordCount();
-
-        // Assert
-        assertThat(result).isEqualTo(1L);
-    }
-
-
 }

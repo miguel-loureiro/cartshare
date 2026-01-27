@@ -1,9 +1,7 @@
 package com.cartshare.backend.infrastructure.excel;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
-import com.cartshare.backend.core.service.ProductCategoryMatcher;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteBatch;
 import lombok.Setter;
@@ -13,9 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -32,39 +28,6 @@ public class FirestoreExcelImporter {
 
     public FirestoreExcelImporter(Firestore firestore) {
         this.firestore = firestore;
-    }
-
-    public void importCategories(InputStream is) throws Exception {
-        List<List<String>> rows = ExcelReader.read(is);
-        int total = rows.size();
-        log.info("🚀 Starting Categories import: {} rows", total);
-
-        WriteBatch batch = dryRun ? null : firestore.batch();
-        int count = 0;
-
-        for (int i = 0; i < total; i++) {
-            List<String> row = rows.get(i);
-            if (row.size() >= 4) {
-                String id = ExcelReader.toSafeId(row.get(0));
-                Category cat = new Category(id, row.get(1), ExcelReader.toSafeId(row.get(2)), Integer.parseInt(row.get(3)));
-
-                if (!dryRun) {
-                    assert batch != null;
-                    batch.set(firestore.collection("categories").document(id), cat);
-                    count++;
-                    if (count % BATCH_SIZE == 0) {
-                        batch.commit().get();
-                        batch = firestore.batch();
-                    }
-                }
-            }
-            logProgress("Categories", i + 1, total);
-        }
-
-        if (!dryRun && batch != null && count > 0 && count % BATCH_SIZE != 0) {
-            batch.commit().get();
-        }
-        log.info("✅ Categories import finished. Records saved: {}", count);
     }
 
     public void importKeywordsFromList(List<Keyword> keywords) throws Exception {
@@ -91,71 +54,37 @@ public class FirestoreExcelImporter {
                     batch = firestore.batch();
                 }
             }
-            logProgress("Keywords", i + 1, total);
+            logProgress(i + 1, total);
         }
 
         finalizeBatch(batch, count);
         log.info("✅ Keywords import finished. Records saved: {}", count);
     }
 
-    public void importProducts(InputStream is, List<Keyword> keywords) throws Exception {
+    public void importProducts(InputStream is) throws Exception {
         List<List<String>> rows = ExcelReader.read(is);
-        int total = rows.size();
-        log.info("🚀 Starting Products import: {} rows", total);
-
-        WriteBatch batch = dryRun ? null : firestore.batch();
-        int count = 0;
-
-        for (int i = 0; i < total; i++) {
-            List<String> r = rows.get(i);
-            if (r.size() >= 2) {
-                String originalName = r.get(0);
-                String category = ProductCategoryMatcher.resolveCategory(originalName, keywords, r.get(1));
-
-                // 1. Generate the unique ID (e.g., "pao")
-                String docId = ExcelReader.toSafeId(originalName);
-
-                // 2. Create the Product Record
-                Product product = new Product(
-                        docId,                // @DocumentId
-                        originalName,         // Display Name
-                        category,             // Category
-                        true,                 // isOfficial (Excel data)
-                        generateSearchKeywords(originalName) // List for search
-                );
-
-                if (!dryRun) {
-                    // 3. Set using the generated ID to prevent duplicates
-                    assert batch != null;
-                    batch.set(firestore.collection("products").document(docId), product);
-                    count++;
-
-                    if (count % BATCH_SIZE == 0) {
-                        batch.commit().get();
-                        batch = firestore.batch();
-                    }
-                }
-            }
-            logProgress("Products", i + 1, total);
-        }
-
-        finalizeBatch(batch, count);
-        log.info("✅ Products import finished. Records saved: {}", count);
-    }
-
-    public void importCategoriesFromList(List<Category> categories) throws Exception {
-        if (dryRun) return;
         WriteBatch batch = firestore.batch();
         int count = 0;
-        for (Category cat : categories) {
-            batch.set(firestore.collection("categories").document(cat.id()), cat);
-            count++;
-            if (count % BATCH_SIZE == 0) {
-                batch.commit().get();
-                batch = firestore.batch();
+
+        for (List<String> r : rows) {
+            if (!r.isEmpty()) {
+                String name = r.getFirst();
+                String docId = ExcelReader.toSafeId(name);
+
+                Product product = new Product(
+                        docId,
+                        name,
+                        true, // It's from Excel, so it's official
+                        generateSearchKeywords(name)
+                );
+
+                batch.set(firestore.collection("products").document(docId), product);
+                count++;
+
+                if (count % 400 == 0) { batch.commit().get(); batch = firestore.batch(); }
             }
         }
-        if (count > 0 && count % BATCH_SIZE != 0) batch.commit().get();
+        batch.commit().get();
     }
 
     public void importProductsFromList(List<Product> products) throws Exception {
@@ -199,11 +128,11 @@ public class FirestoreExcelImporter {
         return normalized.replaceAll("\\p{M}", "");
     }
 
-    private void logProgress(String task, int current, int total) {
+    private void logProgress(int current, int total) {
         int interval = Math.max(1, total / 10);
         if (current == 1 || current == total || current % interval == 0) {
             double percent = ((double) current / total) * 100;
-            log.info("--> {} Progress: {}/{} ({}%)", task, current, total, String.format("%.1f", percent));
+            log.info("--> {} Progress: {}/{} ({}%)", "Keywords", current, total, String.format("%.1f", percent));
         }
     }
 

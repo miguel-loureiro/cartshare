@@ -1,96 +1,103 @@
 package com.cartshare.backend.shared.util;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
 import com.cartshare.backend.core.service.AutocompleteService;
-import com.cartshare.backend.core.service.ProductCategoryMatcher;
 import com.cartshare.backend.infrastructure.excel.ExcelReader;
 import com.cartshare.backend.infrastructure.excel.FirestoreExcelImporter;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
-
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class FirestoreDataSeederTest {
-
     @Mock private FirestoreExcelImporter importer;
     @Mock private AutocompleteService autocompleteService;
     @Mock private ResourceLoader resourceLoader;
-    @Mock private Resource resource;
-
+    @Mock private Resource kwResource;
+    @Mock private Resource prodResource;
     @InjectMocks
     private FirestoreDataSeeder firestoreDataSeeder;
 
     @Test
-    void run_SuccessfulSeeding_ShouldInvokeAllServices() throws Exception {
+    @DisplayName("run: Successful seeding should process Keywords and Products")
+    void run_SuccessfulSeeding_ShouldInvokeRelevantServices() throws Exception {
         // --- GIVEN ---
-        // Mock Resource Loading
-        when(resourceLoader.getResource(anyString())).thenReturn(resource);
-        InputStream emptyIs = new ByteArrayInputStream(new byte[0]);
-        when(resource.getInputStream()).thenReturn(emptyIs);
+        // Mock keyword resource
+        when(resourceLoader.getResource("classpath:excel/keywords.xlsx")).thenReturn(kwResource);
+        when(kwResource.getInputStream()).thenAnswer(inv -> new ByteArrayInputStream(new byte[0]));
 
-        // Prepare Dummy Data
-        List<List<String>> catData = List.of(List.of("id1", "Name", "parent", "1"));
-        List<List<String>> kwData = List.of(List.of("keyword", "catId"));
-        List<List<String>> prodData = List.of(List.of("Product Name", "RawCat"));
+        // Mock product resource
+        when(resourceLoader.getResource("classpath:excel/Products.xlsx")).thenReturn(prodResource);
+        when(prodResource.getInputStream()).thenAnswer(inv -> new ByteArrayInputStream(new byte[0]));
 
-        // We use MockedStatic to control the utility classes
-        try (MockedStatic<ExcelReader> excelReader = mockStatic(ExcelReader.class);
-             MockedStatic<ProductCategoryMatcher> matcher = mockStatic(ProductCategoryMatcher.class)) {
+        // Prepare test data - ExcelReader will be called twice
+        List<List<String>> kwData = List.of(
+                List.of("Keyword"),  // Header (will be skipped)
+                List.of("Arroz")     // Data row
+        );
+        List<List<String>> prodData = List.of(
+                List.of("Product Name"),  // Header (will be skipped)
+                List.of("Feijão")        // Data row
+        );
 
-            excelReader.when(() -> ExcelReader.read(any(InputStream.class)))
-                    .thenReturn(catData)  // 1st call (Categories)
-                    .thenReturn(kwData)   // 2nd call (Keywords)
-                    .thenReturn(prodData); // 3rd call (Products)
+        try (MockedStatic<ExcelReader> excelReader = mockStatic(ExcelReader.class)) {
+            // Mock ExcelReader.read() to return different data on consecutive calls
+            excelReader.when(() -> ExcelReader.read(any()))
+                    .thenReturn(kwData)    // 1st call: Keywords
+                    .thenReturn(prodData)  // 2nd call: Products
+                    .thenReturn(List.of()); // 3rd+ call: Safety net
 
-            excelReader.when(() -> ExcelReader.toSafeId(anyString())).thenAnswer(inv -> inv.getArgument(0));
-            matcher.when(() -> ProductCategoryMatcher.resolveCategory(anyString(), anyList(), anyString()))
-                    .thenReturn("resolved-cat-id");
+            // Mock keyword generation for product search keywords
+            when(importer.generateSearchKeywords(anyString())).thenReturn(List.of("test"));
 
-            when(importer.generateSearchKeywords(anyString())).thenReturn(List.of("prod", "name"));
+            // Mock the import methods (they return void)
+            doNothing().when(importer).importKeywordsFromList(any());
+            doNothing().when(importer).importProductsFromList(any());
 
             // --- WHEN ---
             firestoreDataSeeder.run();
 
             // --- THEN ---
-            // Verify DB imports were called
-            verify(importer, times(1)).importCategoriesFromList(anyList());
-            verify(importer, times(1)).importKeywordsFromList(anyList());
-            verify(importer, times(1)).importProductsFromList(anyList());
+            // Verify imports were called with correct data
+            ArgumentCaptor<List<Keyword>> keywordCaptor = ArgumentCaptor.forClass(List.class);
+            verify(importer, times(1)).importKeywordsFromList(keywordCaptor.capture());
+            assertThat(keywordCaptor.getValue()).hasSize(1);
+            assertThat(keywordCaptor.getValue().get(0).keyword()).isEqualTo("Arroz");
 
-            // Verify Autocomplete index was updated
-            verify(autocompleteService, times(1)).indexUpdate(anyList(), anyList(), anyList());
+            ArgumentCaptor<List<Product>> productCaptor = ArgumentCaptor.forClass(List.class);
+            verify(importer, times(1)).importProductsFromList(productCaptor.capture());
+            assertThat(productCaptor.getValue()).hasSize(1);
+
+            // Verify search keyword generation was called
+            verify(importer, times(1)).generateSearchKeywords("Feijão");
         }
     }
 
     @Test
+    @DisplayName("run: When exception occurs, should catch and log error")
     void run_WhenExceptionOccurs_ShouldCatchAndLog() throws Exception {
         // --- GIVEN ---
-        when(resourceLoader.getResource(anyString())).thenThrow(new RuntimeException("File not found"));
+        when(resourceLoader.getResource("classpath:excel/keywords.xlsx"))
+                .thenThrow(new RuntimeException("Seed file missing"));
 
-        // --- WHEN ---
-        // Should not throw exception due to try-catch in 'run'
-        firestoreDataSeeder.run();
-
-        // --- THEN ---
-        verifyNoInteractions(importer);
-        verifyNoInteractions(autocompleteService);
+        // --- WHEN/THEN ---
+        // Should not throw exception (it's caught internally)
+        assertDoesNotThrow(() -> firestoreDataSeeder.run());
     }
 }

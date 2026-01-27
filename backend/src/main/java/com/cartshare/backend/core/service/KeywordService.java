@@ -1,95 +1,59 @@
 package com.cartshare.backend.core.service;
 
 import com.cartshare.backend.core.model.Keyword;
+import com.cartshare.backend.infrastructure.excel.ExcelReader;
+import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class KeywordService {
-
     private final Firestore firestore;
-
     /**
      * Create keywords for a product.
-     *
-     * For each keyword:
-     * 1. Check if it already exists
-     * 2. If not, create a new Keyword entity
-     *
      * Keywords are used for autocomplete suggestions.
-     *
      * @param productName Name of the product (for logging)
-     * @param categoryId Category ID to assign to keywords
      * @param searchKeywords List of keywords to create
      */
-    public void createKeywordsForProduct(String productName, String categoryId, List<String> searchKeywords) {
+    public void createKeywordsForProduct(String productName, List<String> searchKeywords) {
         try {
             log.info("🔑 Creating keywords for product: {} ({})", productName, searchKeywords.size());
-
             for (String keyword : searchKeywords) {
-                createKeywordIfNotExists(keyword, categoryId);
+                createKeywordIfNotExists(keyword);
             }
-
             log.info("✅ Keywords created for product: {}", productName);
-
-        } catch (Exception e) { // Change this to Exception to catch all Firestore/Runtime issues
+        } catch (Exception e) {
             log.error("⚠️ Error creating keywords for product {}: ", productName, e);
-            // Flow continues gracefully
         }
     }
-
     /**
-     * Create a keyword if it doesn't already exist
+     * Create a keyword if it doesn't already exist.
+     * Uses the keyword itself as the document ID for O(1) existence checks.
      */
-    private void createKeywordIfNotExists(String keyword, String categoryId)
-            throws ExecutionException, InterruptedException {
-
-        // Check if keyword exists
-        long exists = firestore.collection("keywords")
-                .whereEqualTo("keyword", keyword)
-                .get()
-                .get()
-                .size();
-
-        if (exists == 0) {
-            Keyword kw = new Keyword(keyword, categoryId);
-            String keywordId = UUID.randomUUID().toString();
-            firestore.collection("keywords").document(keywordId).set(kw).get();
+    private void createKeywordIfNotExists(String keyword) throws ExecutionException, InterruptedException {
+        String docId = ExcelReader.toSafeId(keyword);
+        DocumentReference docRef = firestore.collection("keywords").document(docId);
+        // Using a direct document check is faster and cheaper than a query
+        if (!docRef.get().get().exists()) {
+            Keyword kw = new Keyword(keyword);
+            docRef.set(kw).get();
             log.debug("✅ Keyword created: {}", keyword);
         }
     }
-
     /**
      * Get all keywords
      */
     public List<Keyword> getAllKeywords() throws ExecutionException, InterruptedException {
-        return firestore.collection("keywords")
-                .get()
-                .get()
-                .toObjects(Keyword.class);
+        return firestore.collection("keywords").get().get().toObjects(Keyword.class);
     }
-
     /**
-     * Get keywords by category
-     */
-    public List<Keyword> getKeywordsByCategory(String categoryId) throws ExecutionException, InterruptedException {
-        return firestore.collection("keywords")
-                .whereEqualTo("categoryId", categoryId)
-                .get()
-                .get()
-                .toObjects(Keyword.class);
-    }
-
-    /**
-     * Get keyword count
+     * Get total keyword count
      */
     public long getKeywordCount() throws ExecutionException, InterruptedException {
         return firestore.collection("keywords").get().get().size();

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -20,10 +19,5 @@ public class SearchController {
     @GetMapping("/autocomplete")
     public List<String> getSuggestions(@RequestParam String term) {
         return autocompleteService.suggest(term);
-    }
-
-    @GetMapping("/categories")
-    public Set<String> getCategories(@RequestParam String keyword) {
-        return autocompleteService.getCategoriesForKeyword(keyword);
     }
 }

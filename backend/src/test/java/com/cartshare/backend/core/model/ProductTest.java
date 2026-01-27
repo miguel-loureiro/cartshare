@@ -15,17 +15,15 @@ class ProductTest {
     void shouldCreateOfficialProductWithSearchKeywords() {
         // Arrange
         String name = "Abacaxi Pérola";
-        String categoryId = "ALIMENTOS";
         boolean isOfficial = true;
         List<String> keywords = List.of("abacaxi", "perola");
 
         // Act
-        Product product = new Product(null,name, categoryId, isOfficial, keywords);
+        Product product = new Product(null,name,  isOfficial, keywords);
 
         // Assert
         assertAll("Validação do Produto Oficial",
                 () -> assertEquals(name, product.productName()),
-                () -> assertEquals(categoryId, product.categoryId()),
                 () -> assertTrue(product.isOfficial(), "Produto vindo do Excel deve ser oficial"),
                 () -> assertEquals(2, product.searchKeywords().size()),
                 () -> assertTrue(product.searchKeywords().contains("abacaxi"))
@@ -33,29 +31,10 @@ class ProductTest {
     }
 
     @Test
-    @DisplayName("Deve criar um produto de usuário (pendente) com categoria padrão")
-    void shouldCreateUserContributedProduct() {
-        // Arrange
-        String name = "Dragon Fruit";
-        String categoryId = "OUTROS"; // Padrão para novas entradas de usuário
-        boolean isOfficial = false;   // Aguardando revisão no Dashboard
-        List<String> keywords = List.of("dragon", "fruit");
-
-        // Act
-        Product product = new Product(null, name, categoryId, isOfficial, keywords);
-
-        // Assert
-        assertAll("Validação do Produto de Usuário",
-                () -> assertFalse(product.isOfficial(), "Entradas de usuários não devem ser oficiais por padrão"),
-                () -> assertEquals("OUTROS", product.categoryId(), "Deve usar a categoria padrão configurada")
-        );
-    }
-
-    @Test
     @DisplayName("Deve garantir imutabilidade da lista de keywords")
     void shouldEnsureKeywordsAreImmutable() {
         // Arrange
-        Product product = new Product(null,"Leite", "BEBIDAS", true, List.of("leite"));
+        Product product = new Product(null,"Leite", true, List.of("leite"));
 
         // Assert
         // A lista retornada por List.of() já é imutável

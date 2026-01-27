@@ -1,6 +1,5 @@
 package com.cartshare.backend.core.service;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,188 +7,92 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
-
+import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 class AutocompleteServiceTest {
 
-    private AutocompleteService service;
-    private List<Category> officialCategories;
+    private AutocompleteService autocompleteService;
 
     @BeforeEach
     void setUp() {
-        service = new AutocompleteService();
-        officialCategories = List.of(
-                new Category("ALIMENTOS", "Alimentação", "MERCEARIA", 1),
-                new Category("BEBIDAS", "Bebidas", "MERCEARIA", 2),
-                new Category("SAUDE", "Saúde", "CUIDADOS", 3),
-                new Category("LIMPEZA", "Limpeza", "CUIDADOS", 4),
-                new Category("OUTROS", "Outros", "OUTROS", 99)
-        );
+        autocompleteService = new AutocompleteService();
     }
 
     @Test
-    @DisplayName("Accent Folding: Should find 'Maçã' even with 'maca' or 'MACA'")
-    void shouldFindMaçãWithDifferentAccents() {
-        service.indexUpdate(officialCategories, List.of(new Keyword("Maçã", "ALIMENTOS")), List.of());
+    @DisplayName("Normalization: Should match words regardless of accents or casing")
+    void shouldNormalizeSearch() {
+        // Arrange
+        Keyword kw = new Keyword("Café");
+        autocompleteService.indexUpdate(List.of(kw), List.of());
 
-        assertAll("Accent Invariance",
-                () -> assertTrue(service.suggest("maca").contains("maçã")),
-                () -> assertTrue(service.suggest("MAÇÁ").contains("maçã")),
-                () -> assertTrue(service.suggest("mãc").contains("maçã"))
-        );
+        // Act & Assert
+        assertThat(autocompleteService.suggest("cafe")).containsExactly("Café");
+        assertThat(autocompleteService.suggest("CAFÉ")).containsExactly("Café");
     }
 
     @Test
-    @DisplayName("Priority with Fuzzy: Alimentos (1) matches should appear before Bebidas (2)")
-    void fuzzyShouldRespectPriority() {
-        service.indexUpdate(officialCategories, List.of(
-                new Keyword("Cerveja", "BEBIDAS"), // Prio 2
-                new Keyword("Cereais", "ALIMENTOS") // Prio 1
-        ), List.of());
+    @DisplayName("Fuzzy Match: Should match 'pao' to 'pão' using Levenshtein distance")
+    void shouldFuzzyMatch() {
+        // Arrange
+        Keyword kw = new Keyword("pão");
+        autocompleteService.indexUpdate(List.of(kw), List.of());
 
-        // Typing 'cer' matches both
-        List<String> results = service.suggest("cer");
-        assertEquals("cereais", results.get(0));
-        assertEquals("cerveja", results.get(1));
+        // Act & Assert
+        // Distance between "pao" and "pão" (after normalization) is 0,
+        // but even if it were different, fuzzy match handles it.
+        assertThat(autocompleteService.suggest("pao")).containsExactly("pão");
     }
 
     @Test
-    @DisplayName("Fuzzy Tolerance: Should find 'Sabonete' with two typos 'Sabinete'")
-    void shouldHandleDoubleTyposForLongWords() {
-        service.indexUpdate(officialCategories, List.of(new Keyword("Sabonete", "SAUDE")), List.of());
+    @DisplayName("Priority: Official products should appear before keywords")
+    void officialProductsShouldHavePriority() {
+        // Arrange
+        Keyword kw = new Keyword("Arroz"); // Priority 1
 
-        List<String> results = service.suggest("sabinete"); // o->i and e->e (distance 1)
-        assertTrue(results.contains("sabonete"));
+        // This product name contains "Arroz", so it will be found
+        Product officialProd = Product.createOfficial("Arroz Agulhão", List.of("branco"));
+
+        // This product name also contains "Arroz", but is Priority 5
+        Product userProd = new Product("user-1", "Arroz de Festa", false, List.of("festa"));
+
+        autocompleteService.indexUpdate(List.of(kw), List.of(officialProd, userProd));
+
+        // Act
+        List<String> suggestions = autocompleteService.suggest("arroz");
+
+        // Assert
+        assertThat(suggestions)
+                .as("Should find the keyword and both product names")
+                .hasSize(3)
+                .contains("Arroz", "Arroz Agulhão", "Arroz de Festa");
+
+        // Verify Priority: Priority 1 items must come before Priority 5
+        // "Arroz de Festa" is Priority 5, so it must be the last element
+        assertThat(suggestions.get(2)).isEqualTo("Arroz de Festa");
     }
 
     @Test
-    @DisplayName("Category Mapping: Should return correct IDs for selected keyword")
-    void shouldReturnCorrectCategories() {
-        service.indexUpdate(officialCategories, List.of(
-                new Keyword("Detergente", "LIMPEZA"),
-                new Keyword("Detergente", "OUTROS")
-        ), List.of());
+    @DisplayName("Limit: Should never return more than 10 suggestions")
+    void shouldLimitSuggestions() {
+        // Arrange
+        List<Keyword> manyKeywords = IntStream.range(0, 20)
+                .mapToObj(i -> new Keyword("Keyword " + i))
+                .toList();
+        autocompleteService.indexUpdate(manyKeywords, List.of());
 
-        var categories = service.getCategoriesForKeyword("detergente");
-        assertEquals(2, categories.size());
-        assertTrue(categories.containsAll(List.of("LIMPEZA", "OUTROS")));
+        // Act
+        List<String> results = autocompleteService.suggest("Keyword");
+
+        // Assert
+        assertThat(results).hasSize(10);
     }
 
     @Test
-    @DisplayName("Should build index correctly from categories, keywords, and products")
-    void indexUpdate_FullFlow_Success() {
-        // GIVEN
-        List<Category> categories = List.of(
-                new Category("cat-1", "Fruits", "root", 1),
-                new Category("cat-2", "Vegetables", "root", 5)
-        );
-
-        List<Keyword> keywords = List.of(
-                new Keyword("Apple", "cat-1"),
-                new Keyword("Carrot", "cat-2")
-        );
-
-        List<Product> products = List.of(
-                new Product("p1", "Gala Apple", "cat-1", true, List.of("Gala", "Apple")),
-                new Product("p2", "Baby Carrot", "cat-2", true, List.of("Baby", "Carrot"))
-        );
-
-        // WHEN
-        service.indexUpdate(categories, keywords, products);
-
-        // THEN
-        // Verify lowercase normalization and category mapping
-        assertThat(service.getCategoriesForKeyword("apple")).containsExactlyInAnyOrder("cat-1");
-        assertThat(service.getCategoriesForKeyword("carrot")).containsExactlyInAnyOrder("cat-2");
-
-        // Verify product search keywords were indexed
-        assertThat(service.getCategoriesForKeyword("gala")).contains("cat-1");
-        assertThat(service.getCategoriesForKeyword("baby")).contains("cat-2");
+    @DisplayName("Edge Case: Should handle null or empty search terms gracefully")
+    void shouldHandleEmptyInputs() {
+        assertThat(autocompleteService.suggest(null)).isEmpty();
+        assertThat(autocompleteService.suggest("")).isEmpty();
+        assertThat(autocompleteService.suggest("   ")).isEmpty();
     }
-
-    @Test
-    @DisplayName("Should use the highest priority (lowest number) when a keyword exists in multiple categories")
-    void indexUpdate_PriorityMerging() {
-        // GIVEN
-        List<Category> categories = List.of(
-                new Category("high-priority", "Fast", "", 1),
-                new Category("low-priority", "Slow", "", 50)
-        );
-
-        // Same keyword "Delivery" in both categories
-        List<Keyword> keywords = List.of(
-                new Keyword("Delivery", "low-priority"),
-                new Keyword("Delivery", "high-priority")
-        );
-
-        // WHEN
-        service.indexUpdate(categories, keywords, List.of());
-
-        // THEN
-        // We use suggest() to check order. "Delivery" is the only entry.
-        // If we added more items, "Delivery" should rank higher because its priority is now 1.
-        Set<String> categoryIds = service.getCategoriesForKeyword("delivery");
-        assertThat(categoryIds).containsExactlyInAnyOrder("high-priority", "low-priority");
-    }
-
-    @Test
-    @DisplayName("Should assign default priority 99 if category ID is not found in the provided list")
-    void indexUpdate_DefaultPriority() {
-        // GIVEN
-        List<Category> emptyCategories = List.of();
-        List<Keyword> keywords = List.of(new Keyword("Unknown", "orphan-id"));
-
-        // WHEN
-        service.indexUpdate(emptyCategories, keywords, List.of());
-
-        // THEN
-        assertThat(service.getCategoriesForKeyword("unknown")).contains("orphan-id");
-        // Internal check: If we had other keywords with priority < 99,
-        // "unknown" would appear last in suggest() results.
-    }
-
-    @Test
-    @DisplayName("Should completely clear old data when indexUpdate is called a second time")
-    void indexUpdate_ReplacementPolicy() {
-        // GIVEN: Initial state
-        service.indexUpdate(
-                List.of(new Category("c1", "Old", "", 1)),
-                List.of(new Keyword("OldKeyword", "c1")),
-                List.of()
-        );
-
-        // WHEN: Updating with entirely new data
-        service.indexUpdate(
-                List.of(new Category("c2", "New", "", 1)),
-                List.of(new Keyword("NewKeyword", "c2")),
-                List.of()
-        );
-
-        // THEN
-        assertThat(service.getCategoriesForKeyword("oldkeyword")).isEmpty();
-        assertThat(service.getCategoriesForKeyword("newkeyword")).contains("c2");
-    }
-
-    @Test
-    @DisplayName("Should handle null or blank strings gracefully during indexing")
-    void indexUpdate_NullAndBlankHandling() {
-        // GIVEN
-        List<Category> categories = List.of(new Category("c1", "Test", "", 1));
-        List<Keyword> keywords = List.of(
-                new Keyword(null, "c1"),
-                new Keyword("  ", "c1"),
-                new Keyword("Valid", "c1")
-        );
-
-        // WHEN
-        service.indexUpdate(categories, keywords, List.of());
-
-        // THEN
-        assertThat(service.suggest("")).isEmpty();
-        assertThat(service.getCategoriesForKeyword("valid")).contains("c1");
-    }
-
 }

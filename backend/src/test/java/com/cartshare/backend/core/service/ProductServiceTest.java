@@ -41,14 +41,12 @@ class ProductServiceTest {
     private ProductService productService;
 
     private MockedStatic<StringUtils> mockedStringUtils;
-    private MockedStatic<ProductCategoryMatcher> mockedMatcher;
     private MockedStatic<SearchUtils> mockedSearchUtils;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() throws Exception {
         mockedStringUtils = mockStatic(StringUtils.class);
-        mockedMatcher = mockStatic(ProductCategoryMatcher.class);
         mockedSearchUtils = mockStatic(SearchUtils.class);
 
         doReturn(collectionReference).when(firestore).collection("products");
@@ -70,7 +68,6 @@ class ProductServiceTest {
     @AfterEach
     void tearDown() {
         if (mockedStringUtils != null) mockedStringUtils.close();
-        if (mockedMatcher != null) mockedMatcher.close();
         if (mockedSearchUtils != null) mockedSearchUtils.close();
     }
 
@@ -79,7 +76,7 @@ class ProductServiceTest {
     void addOrGetProduct_ReturnsExisting() throws Exception {
         String name = "Arroz";
         String id = "arroz";
-        Product existing = Product.of(id, name, "alimentos", true, List.of("arroz"));
+        Product existing = Product.of(id, name,  true, List.of("arroz"));
 
         mockedStringUtils.when(() -> StringUtils.toSafeId(name)).thenReturn(id);
 
@@ -104,8 +101,6 @@ class ProductServiceTest {
         List<String> keywords = List.of("choc", "late");
 
         mockedStringUtils.when(() -> StringUtils.toSafeId(name)).thenReturn(id);
-        mockedMatcher.when(() -> ProductCategoryMatcher.resolveCategory(anyString(), anyList(), anyString()))
-                .thenReturn(resolvedCat);
         mockedSearchUtils.when(() -> SearchUtils.generateSearchKeywords(name)).thenReturn(keywords);
 
         when(transaction.get(documentReference)).thenReturn(futureSnapshot);

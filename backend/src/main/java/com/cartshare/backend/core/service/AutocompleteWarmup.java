@@ -1,6 +1,5 @@
 package com.cartshare.backend.core.service;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
 import com.google.api.core.ApiFuture;
@@ -31,21 +30,14 @@ public class AutocompleteWarmup implements CommandLineRunner {
     public void run(String... args) {
         log.info(">>> Starting Autocomplete Index Warm-up from Firestore...");
         try {
-            // 1. Fetch Categories
-            Thread.sleep(5000); // Wait 5 seconds
-            List<Category> categories = fetchCollection("categories", Category.class);
-            log.info("Loaded {} categories for indexing.", categories.size());
 
-            // 2. Fetch Keywords
             List<Keyword> keywords = fetchCollection("keywords", Keyword.class);
             log.info("Loaded {} keywords for indexing.", keywords.size());
 
-            // 3. Fetch Products
             List<Product> products = fetchCollection("products", Product.class);
             log.info("Loaded {} products for indexing.", products.size());
 
-            // 4. Update the Service Index
-            autocompleteService.indexUpdate(categories, keywords, products);
+            autocompleteService.indexUpdate(keywords, products);
             log.info(">>> Autocomplete Index Warm-up COMPLETED successfully.");
 
         } catch (Exception e) {

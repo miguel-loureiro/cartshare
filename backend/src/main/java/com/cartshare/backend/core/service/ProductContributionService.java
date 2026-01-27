@@ -1,6 +1,5 @@
 package com.cartshare.backend.core.service;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
 import com.cartshare.backend.infrastructure.excel.FirestoreExcelImporter;
@@ -66,12 +65,12 @@ public class ProductContributionService {
         log.info("🔑 Generated keywords: {}", searchKeywords);
 
         // 5. Create and save
-        Product product = Product.createUserContributed(productName, categoryId, searchKeywords);
+        Product product = Product.createUserContributed(productName, searchKeywords);
         Product savedProduct = saveProduct(product);
         log.info("✅ Product saved: {} (ID: {}, isOfficial: false)", productName, savedProduct.id());
 
         // 6. Create keywords
-        keywordService.createKeywordsForProduct(productName, categoryId, searchKeywords);
+        keywordService.createKeywordsForProduct(productName, searchKeywords);
 
         // 7. Update autocomplete
         updateAutocompleteIndex();
@@ -190,7 +189,6 @@ public class ProductContributionService {
         Product productWithId = Product.of(
                 productId,
                 product.productName(),
-                product.categoryId(),
                 product.isOfficial(),
                 product.searchKeywords()
         );
@@ -208,16 +206,13 @@ public class ProductContributionService {
      */
     private void updateAutocompleteIndex() {
         try {
-            QuerySnapshot categoriesSnapshot = firestore.collection("categories").get().get();
-            List<Category> categories = categoriesSnapshot.toObjects(Category.class);
-
             QuerySnapshot keywordsSnapshot = firestore.collection("keywords").get().get();
             List<Keyword> keywords = keywordsSnapshot.toObjects(Keyword.class);
 
             QuerySnapshot productsSnapshot = firestore.collection("products").get().get();
             List<Product> products = productsSnapshot.toObjects(Product.class);
 
-            autocompleteService.indexUpdate(categories, keywords, products);
+            autocompleteService.indexUpdate(keywords, products);
             log.info("🔄 Autocomplete index updated");
 
         } catch (InterruptedException | ExecutionException e) {

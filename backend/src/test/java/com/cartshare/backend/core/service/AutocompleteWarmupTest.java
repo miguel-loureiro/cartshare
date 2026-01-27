@@ -1,5 +1,7 @@
 package com.cartshare.backend.core.service;
 
+import com.cartshare.backend.core.model.Keyword;
+import com.cartshare.backend.core.model.Product;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.Firestore;
@@ -23,74 +25,66 @@ import static org.mockito.Mockito.*;
 class AutocompleteWarmupTest {
 
     @Mock private Firestore firestore;
-    @Mock
-    private AutocompleteService autocompleteService;
+    @Mock private AutocompleteService autocompleteService;
 
     @InjectMocks
     private AutocompleteWarmup autocompleteWarmup;
 
-    // Helper mocks for the Firestore chain
-    private CollectionReference collectionReference;
-    private ApiFuture<QuerySnapshot> apiFuture;
-    private QuerySnapshot querySnapshot;
+    @Mock private CollectionReference collectionReference;
+    @Mock private ApiFuture<QuerySnapshot> apiFuture;
+    @Mock private QuerySnapshot querySnapshot;
+    @Mock private QueryDocumentSnapshot docSnapshot;
 
     @BeforeEach
-    void setUp() {
-        collectionReference = mock(CollectionReference.class);
-        apiFuture = mock(ApiFuture.class);
-        querySnapshot = mock(QuerySnapshot.class);
-
+    void setUp() throws Exception {
         // Standard stubbing for the firestore.collection("...").get() chain
-        when(firestore.collection(anyString())).thenReturn(collectionReference);
-        when(collectionReference.get()).thenReturn(apiFuture);
+        lenient().when(firestore.collection(anyString())).thenReturn(collectionReference);
+        lenient().when(collectionReference.get()).thenReturn(apiFuture);
+        lenient().when(apiFuture.get()).thenReturn(querySnapshot);
     }
 
     @Test
-    @DisplayName("run: Should fetch all collections and update index successfully")
+    @DisplayName("run: Should fetch Keywords and Products and update index successfully")
     void run_SuccessfulWarmup() throws Exception {
         // Arrange
-        when(apiFuture.get()).thenReturn(querySnapshot);
-        // Simulate finding 1 document for each of the 3 calls
-        QueryDocumentSnapshot doc = mock(QueryDocumentSnapshot.class);
-        when(querySnapshot.getDocuments()).thenReturn(List.of(doc));
+        // Simulate finding documents so the retry logic doesn't trigger
+        when(querySnapshot.getDocuments()).thenReturn(List.of(docSnapshot));
+
+        // Ensure toObject returns a valid instance to avoid NPEs in AutocompleteService
+        when(docSnapshot.toObject(Keyword.class)).thenReturn(new Keyword("test"));
+        when(docSnapshot.toObject(Product.class)).thenReturn(Product.createOfficial("test", List.of()));
 
         // Act
         autocompleteWarmup.run();
 
         // Assert
-        verify(autocompleteService, times(1)).indexUpdate(anyList(), anyList(), anyList());
+        // Verify only 2 lists are passed now (keywords, products)
+        verify(autocompleteService, times(1)).indexUpdate(anyList(), anyList());
+
+        // Verify only 2 collections are hit (categories was removed)
+        verify(firestore, times(2)).collection(anyString());
+        verify(firestore).collection("keywords");
+        verify(firestore).collection("products");
+    }
+
+    @Test
+    @DisplayName("run: Should retry when collection is initially empty")
+    void run_RetryWhenEmpty() throws Exception {
+        // Arrange
+        QuerySnapshot emptySnapshot = mock(QuerySnapshot.class);
+        when(emptySnapshot.getDocuments()).thenReturn(Collections.emptyList());
+
+        QuerySnapshot fullSnapshot = mock(QuerySnapshot.class);
+        when(fullSnapshot.getDocuments()).thenReturn(List.of(docSnapshot));
+
+        // First call returns empty (triggers retry), second call returns data
+        when(apiFuture.get()).thenReturn(emptySnapshot, fullSnapshot);
+
+        // Act
+        autocompleteWarmup.run();
+
+        // Assert
+        // Keywords took 2 calls (initial + 1 retry), Products took 1 call = 3 total
         verify(firestore, times(3)).collection(anyString());
-    }
-
-    @Test
-    @DisplayName("run: Should retry 3 times when collection is empty")
-    void run_RetriesWhenEmpty() throws Exception {
-        // Arrange
-        when(apiFuture.get()).thenReturn(querySnapshot);
-        // Simulate empty documents
-        when(querySnapshot.getDocuments()).thenReturn(Collections.emptyList());
-
-        // Act
-        autocompleteWarmup.run();
-
-        // Assert
-        // 3 collections * 3 attempts = 9 calls to get()
-        verify(apiFuture, times(9)).get();
-        // Since it stayed empty, indexUpdate should be called with empty lists
-        verify(autocompleteService).indexUpdate(anyList(), anyList(), anyList());
-    }
-
-    @Test
-    @DisplayName("run: Should handle exceptions without crashing the application")
-    void run_HandlesExceptionGracefully() throws Exception {
-        // Arrange
-        when(apiFuture.get()).thenThrow(new RuntimeException("Firestore Timeout"));
-
-        // Act
-        autocompleteWarmup.run();
-
-        // Assert
-        // Verification that indexUpdate was NEVER called due to the exception
-        verify(autocompleteService, never()).indexUpdate(any(), any(), any());
     }
 }

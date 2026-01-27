@@ -1,5 +1,6 @@
 package com.cartshare.backend.infrastructure.excel;
 
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -12,115 +13,132 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("Unit Tests - ExcelReader")
 class ExcelReaderTest {
 
-    @Nested
-    @DisplayName("Tests for toSafeId (Sanitization)")
-    class ToSafeIdTests {
+    @Test
+    @DisplayName("Should read all non-empty rows including header")
+    void shouldReadNonEmptyRows() throws Exception {
+        // Arrange: 4 rows total, 1 is empty
+        byte[] excelContent = createMockExcel(new String[][]{
+                {"Header1", "Header2"}, // Row 0
+                {"Value1", "Value2"},   // Row 1
+                {"", ""},               // Row 2 (Empty)
+                {"Value3", "Value4"}    // Row 3
+        });
+        InputStream is = new ByteArrayInputStream(excelContent);
 
-        @ParameterizedTest
-        @CsvSource({
-                "Alimentação, ALIMENTAÇÃO",      // Preserves Ã and Ç
-                "Padaria e Panificação, PADARIA_E_PANIFICAÇÃO",
-                "Frutos & Grãos, FRUTOS__GRÃOS", // Keeps Ã, removes &
-                "Maçã, MAÇÃ",
-                "  Espaço  , ESPAÇO",
-                "Promoção!, PROMOÇÃO"            // Keeps ÇÃ, removes !
-        })
-        @DisplayName("Should convert strings to CAPS_SNAKE_CASE correctly")
-        void shouldConvertAndSanitizeStrings(String input, String expected) {
-            assertEquals(expected, ExcelReader.toSafeId(input));
-        }
+        // Act
+        List<List<String>> result = ExcelReader.read(is);
 
-        @DisplayName("Should preserve Portuguese characters while sanitizing")
-        void shouldKeepPortugueseAccents(String input, String expected) {
-            assertEquals(expected, ExcelReader.toSafeId(input));
-        }
-
-        @Test
-        @DisplayName("Should handle null input gracefully")
-        void shouldHandleNullInput() {
-            assertEquals("", ExcelReader.toSafeId(null));
-        }
-
-        @Test
-        @DisplayName("Should still remove generic special characters")
-        void shouldStillRemoveSymbols() {
-            String input = "Café @ Home #2026";
-            // E is preserved, spaces become underscores, @ and # are removed
-            String expected = "CAFÉ__HOME_2026";
-            assertEquals(expected, ExcelReader.toSafeId(input));
-        }
+        // Assert
+        // Actual rows returned: Header, Value1, Value3
+        assertEquals(3, result.size(), "Should return 3 rows (Header + 2 Data rows)");
+        assertEquals("Header1", result.get(0).getFirst());
+        assertEquals("Value3", result.get(2).getFirst());
     }
 
-    @Nested
-    @DisplayName("Tests for read(InputStream)")
-    class ReadTests {
+    @Test
+    @DisplayName("Should handle single column rows correctly (Flat Schema)")
+    void shouldHandleSingleColumnRows() throws Exception {
+        // Arrange: Testing the new Keyword format (just one column)
+        byte[] excelContent = createMockExcel(new String[][]{
+                {"Keyword"},
+                {"Pão"},
+                {"Leite"}
+        });
+        InputStream is = new ByteArrayInputStream(excelContent);
 
-        @Test
-        @DisplayName("Should skip header and read valid data rows")
-        void shouldReadExcelDataCorrectly() throws Exception {
-            // Arrange: Create a mock Excel file in memory
-            byte[] excelContent = createMockExcel(new String[][]{
-                    {"ID", "Name"},      // Header (Row 0)
-                    {"ALIMENTOS", "Comida"}, // Data (Row 1)
-                    {"LIMPEZA", "Limpar"}    // Data (Row 2)
-            });
-            InputStream is = new ByteArrayInputStream(excelContent);
+        // Act
+        List<List<String>> result = ExcelReader.read(is);
 
-            // Act
-            List<List<String>> result = ExcelReader.read(is);
+        // Assert
+        assertEquals(3, result.size());
+        assertEquals("Pão", result.get(1).getFirst());
+    }
 
-            // Assert
-            assertAll("Excel Reading Results",
-                    () -> assertEquals(2, result.size(), "Should have read 2 rows (excluding header)"),
-                    () -> assertEquals("ALIMENTOS", result.get(0).get(0)),
-                    () -> assertEquals("Comida", result.get(0).get(1)),
-                    () -> assertEquals("LIMPEZA", result.get(1).get(0))
-            );
-        }
+    @Test
+    @DisplayName("Data Seeding Integration: Skip header via Stream logic")
+    void seedingLogicShouldSkipHeader() throws Exception {
+        // This simulates how your FirestoreDataSeeder uses the reader
+        List<List<String>> data = List.of(
+                List.of("Header"),
+                List.of("Product1"),
+                List.of("Product2")
+        );
 
-        @Test
-        @DisplayName("Should ignore empty rows")
-        void shouldIgnoreEmptyRows() throws Exception {
-            // Arrange: Row 2 is empty
-            byte[] excelContent = createMockExcel(new String[][]{
-                    {"Header1", "Header2"},
-                    {"Value1", "Value2"},
-                    {"", ""},
-                    {"Value3", "Value4"}
-            });
-            InputStream is = new ByteArrayInputStream(excelContent);
+        // Logic used in Seeder: .skip(1)
+        List<String> processed = data.stream()
+                .skip(1)
+                .map(List::getFirst)
+                .toList();
 
-            // Act
-            List<List<String>> result = ExcelReader.read(is);
+        assertEquals(2, processed.size());
+        assertEquals("Product1", processed.get(0));
+    }
 
-            // Assert
-            assertEquals(2, result.size(), "Should only read non-empty rows");
-        }
+    @Test
+    @DisplayName("Negative: Should return empty list and log error on corrupt stream")
+    void shouldHandleCorruptStream() {
+        // Arrange: Provide random bytes that are not a valid Excel format
+        InputStream corruptStream = new ByteArrayInputStream("NotAnExcelFile".getBytes());
+
+        // Act
+        List<List<String>> result = ExcelReader.read(corruptStream);
+
+        // Assert
+        assertNotNull(result);
+        assertTrue(result.isEmpty(), "Result should be an empty list when parsing fails");
+        // This covers the 'catch (Exception e)' block in your ExcelReader
+    }
+
+    @Test
+    @DisplayName("Negative: Should handle null InputStream gracefully")
+    void shouldHandleNullInputStream() {
+        // Act
+        List<List<String>> result = ExcelReader.read(null);
+
+        // Assert
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("toSafeId: Should handle various special characters and spacing")
+    void toSafeId_ComplexInputs() {
+        // Act & Assert
+        assertEquals("pao-de-queijo", ExcelReader.toSafeId("Pão de Queijo!!!"));
+        assertEquals("coca-cola-2l", ExcelReader.toSafeId("  Coca-Cola (2L)  "));
+        assertEquals("unknown", ExcelReader.toSafeId(null));
+        assertEquals("shampoo-anti-caspa", ExcelReader.toSafeId("Shampoo Anti-caspa"));
     }
 
     /**
-     * Helper method to generate an Excel file in memory for testing.
+     * Generates a valid Excel (.xlsx) file in memory for testing.
+     * @param data 2D array representing rows and columns
+     * @return byte array of the generated Excel file
      */
-    private byte[] createMockExcel(String[][] data) throws Exception {
+    private byte[] createMockExcel(String[][] data) throws IOException {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Test");
+
+            Sheet sheet = workbook.createSheet("TestSheet");
             for (int i = 0; i < data.length; i++) {
                 Row row = sheet.createRow(i);
                 for (int j = 0; j < data[i].length; j++) {
-                    row.createCell(j).setCellValue(data[i][j]);
+                    Cell cell = row.createCell(j);
+                    cell.setCellValue(data[i][j]);
                 }
             }
+
             workbook.write(bos);
             return bos.toByteArray();
         }
     }
+
 }

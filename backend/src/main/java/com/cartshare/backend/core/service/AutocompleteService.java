@@ -1,6 +1,5 @@
 package com.cartshare.backend.core.service;
 
-import com.cartshare.backend.core.model.Category;
 import com.cartshare.backend.core.model.Keyword;
 import com.cartshare.backend.core.model.Product;
 import org.springframework.stereotype.Service;
@@ -13,24 +12,28 @@ import java.util.stream.Collectors;
 
 @Service
 public class AutocompleteService {
-
-    private record KeywordMetadata(int priority, Set<String> categoryIds) {}
-    private final Map<String, KeywordMetadata> masterIndex = new ConcurrentHashMap<>();
+    // We only need to map the Keyword to its priority now
+    private final Map<String, Integer> masterIndex = new ConcurrentHashMap<>();
     private static final Pattern ACCENT_PATTERN = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
 
-    public void indexUpdate(List<Category> categories, List<Keyword> keywords, List<Product> products) {
-        Map<String, KeywordMetadata> newIndex = new HashMap<>();
-        Map<String, Integer> priorityLookup = categories.stream()
-                .collect(Collectors.toMap(Category::id, Category::priority, (a, b) -> a));
+    public void indexUpdate(List<Keyword> keywords, List<Product> products) {
+        Map<String, Integer> newIndex = new HashMap<>();
 
+        // 1. Index Keywords
         for (Keyword kw : keywords) {
-            mergeIntoLocalMap(newIndex, kw.keyword(), priorityLookup.getOrDefault(kw.categoryId(), 99), kw.categoryId());
+            newIndex.merge(kw.keyword().trim(), 1, Math::min);
         }
 
+        // 2. Index Products
         for (Product prod : products) {
-            int priority = priorityLookup.getOrDefault(prod.categoryId(), 99);
+            int priority = prod.isOfficial() ? 1 : 5;
+
+            // CRITICAL: Index the product name itself!
+            newIndex.merge(prod.productName().trim(), priority, Math::min);
+
+            // Also index the search keywords for tags/fuzzy matching
             for (String term : prod.searchKeywords()) {
-                mergeIntoLocalMap(newIndex, term, priority, prod.categoryId());
+                newIndex.merge(term.trim(), priority, Math::min);
             }
         }
 
@@ -42,29 +45,12 @@ public class AutocompleteService {
         if (term == null || term.isBlank()) return List.of();
         String query = normalize(term);
 
-        // 1. Prefix matches (normalized)
-        List<String> prefixMatches = masterIndex.entrySet().stream()
-                .filter(e -> normalize(e.getKey()).startsWith(query))
-                .sorted(Comparator.<Map.Entry<String, KeywordMetadata>>comparingInt(e -> e.getValue().priority())
-                        .thenComparing(Map.Entry::getKey))
+        return masterIndex.entrySet().stream()
+                .filter(e -> normalize(e.getKey()).contains(query) || isFuzzyMatch(query, normalize(e.getKey())))
+                .sorted(Map.Entry.comparingByValue()) // Sort by priority (1 comes first)
                 .map(Map.Entry::getKey)
                 .limit(10)
                 .toList();
-
-        if (prefixMatches.size() >= 5 || query.length() < 3) return prefixMatches;
-
-        // 2. Fuzzy matches (normalized Levenshtein)
-        List<String> fuzzyMatches = masterIndex.entrySet().stream()
-                .filter(e -> !normalize(e.getKey()).startsWith(query))
-                .filter(e -> isFuzzyMatch(query, normalize(e.getKey())))
-                .sorted(Comparator.<Map.Entry<String, KeywordMetadata>>comparingInt(e -> e.getValue().priority()))
-                .map(Map.Entry::getKey)
-                .limit(10 - prefixMatches.size())
-                .toList();
-
-        List<String> combined = new ArrayList<>(prefixMatches);
-        combined.addAll(fuzzyMatches);
-        return combined;
     }
 
     private String normalize(String input) {
@@ -91,25 +77,5 @@ public class AutocompleteService {
             prev = curr;
         }
         return prev[s2.length()];
-    }
-
-    private void mergeIntoLocalMap(Map<String, KeywordMetadata> map, String term, int priority, String categoryId) {
-        if (term == null || term.isBlank()) return;
-        String key = term.toLowerCase().trim();
-        map.compute(key, (k, existing) -> {
-            if (existing == null) {
-                Set<String> ids = new HashSet<>(List.of(categoryId));
-                return new KeywordMetadata(priority, ids);
-            } else {
-                existing.categoryIds().add(categoryId);
-                return new KeywordMetadata(Math.min(existing.priority(), priority), existing.categoryIds());
-            }
-        });
-    }
-
-    public Set<String> getCategoriesForKeyword(String keyword) {
-        if (keyword == null) return Set.of();
-        KeywordMetadata metadata = masterIndex.get(keyword.toLowerCase().trim());
-        return metadata != null ? metadata.categoryIds() : Set.of();
     }
 }

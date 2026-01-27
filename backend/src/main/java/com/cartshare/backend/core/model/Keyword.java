@@ -6,6 +6,5 @@ import lombok.NonNull;
 
 @Document(collectionName = "keywords")
 public record Keyword(
-        @DocumentId String keyword,
-        @NonNull String categoryId
+        @DocumentId String keyword
 ) {}

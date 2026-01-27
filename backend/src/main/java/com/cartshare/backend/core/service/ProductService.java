@@ -31,16 +31,9 @@ public class ProductService {
                 return snapshot.toObject(Product.class);
             }
 
-            String resolvedCategory = ProductCategoryMatcher.resolveCategory(
-                    originalName,
-                    currentKeywords,
-                    "OUTROS" // Default fallback
-            );
-
             Product newProduct = new Product(
                     docId,
                     originalName,
-                    resolvedCategory,
                     false, // Not official (added by user)
                     SearchUtils.generateSearchKeywords(originalName)
             );

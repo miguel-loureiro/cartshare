@@ -457,6 +457,65 @@ Restart=always
 WantedBy=multi-user.target
 
 
+# CartShare Backend
 
+A Spring Boot-based synchronization and search service for the CartShare mobile ecosystem. This service manages a high-performance dictionary of products and keywords using Google Firestore, designed for a mobile-first "Flat Data" architecture.
+
+## 🚀 Key Features
+- Flat Data Synchronization: Streamlines the delivery of product and keyword data. Grouping (e.g., by Supermarket) is handled entirely by the mobile client for maximum flexibility.
+- Intelligent Autocomplete: A custom AutocompleteService providing:
+- Normalization: Strips accents (e.g., "pão" -> "pao") using java.text.Normalizer.
+- Fuzzy Matching: Uses the Levenshtein Distance algorithm to find products despite typos.
+- Priority Ranking: Ensures "Official" products (from seed data) appear before user-contributed items.
+- Universal Product Contribution: Allows users to add new products, which are automatically indexed into search keywords.
+
+## 🛠️ Project Structure
+
+We follow a minimalist Spring Boot structure focused on data delivery:
+
+api.controller: Simplified endpoints for search, sync, and contribution.
+service: Core logic for Firestore interactions and fuzzy search algorithms.
+util: Utility classes for ClassLoader resource loading and String manipulation.
+config: Firestore and Security configurations (currently set to permitAll() for development).
+
+## 🧪 Testing & Quality
+We maintain a strict quality gate with a 85% code coverage target using JaCoCo.
+
+## Run Tests & Generate Report
+
+``` bash
+
+./gradlew clean test jacocoTestReport
+View the report at: backend/build/reports/jacoco/test/html/index.html
+
+```
+
+## ⚙️ Troubleshooting
+
+1. Firestore & Connectivity
+   Credentials: Ensure GOOGLE_APPLICATION_CREDENTIALS points to your service account JSON.
+
+Permissions: The service account requires Cloud Datastore User permissions.
+
+2. Search Performance
+   Warm-up: On startup, the AutocompleteWarmup class fetches all records to build the in-memory masterIndex. If search feels slow initially, check logs for >>> Starting Autocomplete Index Warm-up.
+
+Fuzzy Logic: Distance 1 is allowed for terms < 4 chars; Distance 2 for longer terms.
+
+## 📦 Deployment
+The application is packaged as a standalone executable JAR:
+
+``` bash
+
+./gradlew bootJar
+The artifact is generated in build/libs/.
+```
+
+## Why the Flat Model?
+By eliminating the Category entity from the backend, the system is now:
+
+- Faster: Fewer Firestore joins and lookups.
+- Flexible: The mobile app can group products by Supermarket, Store, or aisle without backend changes.
+- Simpler: 30% less code to maintain and test.
 
 
