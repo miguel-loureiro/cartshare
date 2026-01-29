@@ -37,3 +37,6 @@ out/
 .vscode/
 
 backend/google-key-vps.json
+
+/repos/keys/
+*.json
