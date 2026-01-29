@@ -6,6 +6,15 @@ plugins {
     id("org.sonarqube") version "7.2.2.6593"
 }
 
+tasks.named('processResources') {
+    doFirst {
+        println "Processing resources..."
+    }
+    finalizedBy {
+        println "Resources processed"
+    }
+}
+
 group = 'com.cartshare'
 version = '0.0.1-SNAPSHOT'
 

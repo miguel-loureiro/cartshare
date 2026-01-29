@@ -65,7 +65,7 @@ class SyncControllerTest {
         ContributeProductRequest request = new ContributeProductRequest("Milk", "Store_Label_To_Be_Ignored");
         Product mockProduct = Product.of("uuid", "Milk", false, List.of("milk"));
 
-        when(productContributionService.contributeProduct(anyString(), any())).thenReturn(mockProduct);
+        when(productContributionService.contributeProduct(anyString())).thenReturn(mockProduct);
 
         // Act
         ResponseEntity<?> response = syncController.contributeProduct(request);
@@ -168,7 +168,7 @@ class SyncControllerTest {
     @Test
     @DisplayName("contributeProduct: Should return 500 on execution error")
     void contributeProduct_InternalError() throws Exception {
-        when(productContributionService.contributeProduct(anyString(), any()))
+        when(productContributionService.contributeProduct(anyString()))
                 .thenThrow(new InterruptedException("Timeout"));
 
         ResponseEntity<?> response = syncController.contributeProduct(new ContributeProductRequest("Milk", null));
@@ -190,7 +190,7 @@ class SyncControllerTest {
     @DisplayName("contributeProduct: Should return 400 when service throws IllegalArgumentException")
     void contributeProduct_BadRequest() throws Exception {
         // Simulate service validation failing
-        when(productContributionService.contributeProduct(anyString(), any()))
+        when(productContributionService.contributeProduct(anyString()))
                 .thenThrow(new IllegalArgumentException("Invalid Name"));
 
         ResponseEntity<?> response = syncController.contributeProduct(new ContributeProductRequest("", null));

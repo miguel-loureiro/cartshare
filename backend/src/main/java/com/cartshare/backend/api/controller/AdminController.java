@@ -21,17 +21,19 @@ public class AdminController {
 
     @GetMapping("/export/products")
     public ResponseEntity<byte[]> downloadProductBackup() {
+        log.info("📥 Request received to export products backup");
         try {
             byte[] fileContent = exportService.exportProductsToData();
             String fileName = "products_backup_" + System.currentTimeMillis() + ".json";
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .contentType(MediaType.APPLICATION_JSON)
                     .body(fileContent);
 
         } catch (Exception e) {
             log.error("❌ Export failed: ", e);
+            // Returning a 500 status with a message is better for debugging
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

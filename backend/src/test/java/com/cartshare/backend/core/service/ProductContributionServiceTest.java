@@ -37,6 +37,7 @@ class ProductContributionServiceTest {
     @Mock private ApiFuture<DocumentSnapshot> futureDocumentSnapshot;
     @Mock private DocumentSnapshot documentSnapshot;
     @Mock private ApiFuture<WriteResult> futureWrite;
+
     @InjectMocks private ProductContributionService contributionService;
     @BeforeEach
     void setUp() throws Exception {
@@ -58,7 +59,7 @@ class ProductContributionServiceTest {
         when(querySnapshot.isEmpty()).thenReturn(true);
         when(importer.generateSearchKeywords(productName)).thenReturn(keywords);
         when(documentReference.set(any(Product.class))).thenReturn(futureWrite);
-        Product result = contributionService.contributeProduct(productName, null);
+        Product result = contributionService.contributeProduct(productName);
         assertThat(result.productName()).isEqualTo(productName);
         assertThat(result.isOfficial()).isFalse();
         verify(keywordService).createKeywordsForProduct(eq(productName), eq(keywords));
@@ -71,7 +72,7 @@ class ProductContributionServiceTest {
         when(query.get()).thenReturn(futureQuerySnapshot);
         when(querySnapshot.isEmpty()).thenReturn(false);
         assertThrows(IllegalArgumentException.class, () ->
-                contributionService.contributeProduct("Existing Product", null)
+                contributionService.contributeProduct("Existing Product")
         );
     }
 
@@ -97,7 +98,7 @@ class ProductContributionServiceTest {
     @DisplayName("contributeProduct: Should throw exception for null product name")
     void contributeProduct_NullName() {
         assertThrows(IllegalArgumentException.class, () ->
-                contributionService.contributeProduct(null, null)
+                contributionService.contributeProduct(null)
         );
     }
 
@@ -126,7 +127,7 @@ class ProductContributionServiceTest {
         when(keywordsCollection.get()).thenReturn(failingFuture);
         when(failingFuture.get()).thenThrow(new ExecutionException(new RuntimeException("Firestore Down")));
         when(importer.generateSearchKeywords(anyString())).thenReturn(List.of("test"));
-        Product result = contributionService.contributeProduct(productName, null);
+        Product result = contributionService.contributeProduct(productName);
         assertThat(result).isNotNull();
         verify(autocompleteService, never()).indexUpdate(any(), any());
     }
@@ -182,45 +183,16 @@ class ProductContributionServiceTest {
         when(importer.generateSearchKeywords(anyString())).thenReturn(List.of("test"));
         when(documentReference.set(any(Product.class))).thenReturn(futureWrite);
 
-        Product result = contributionService.contributeProduct("Lettuce", catId);
+        Product result = contributionService.contributeProduct("Lettuce");
         assertThat(result).isNotNull();
         verify(documentReference).set(any(Product.class));
-    }
-
-    @Test
-    @DisplayName("contributeProduct: Should throw exception if provided category does not exist")
-    void contributeProduct_InvalidCategory_ThrowsException() throws Exception {
-        // --- GIVEN ---
-        String catId = "NON_EXISTENT";
-        String productName = "Some Product";
-
-        // 1. Properly chain the category mocks
-        CollectionReference categoriesCollection = mock(CollectionReference.class);
-        DocumentReference catDocRef = mock(DocumentReference.class);
-
-        // Use doReturn to match your setUp style and avoid stubbing issues
-        doReturn(categoriesCollection).when(firestore).collection("categories");
-        when(categoriesCollection.document(catId)).thenReturn(catDocRef);
-        when(catDocRef.get()).thenReturn(futureDocumentSnapshot);
-        when(futureDocumentSnapshot.get()).thenReturn(documentSnapshot);
-        when(documentSnapshot.exists()).thenReturn(false); // The core of the test
-
-        // 2. Mock the product existence check (needed because it's called before category check)
-        when(productsCollection.whereEqualTo("productName", productName)).thenReturn(query);
-        when(query.get()).thenReturn(futureQuerySnapshot);
-        when(querySnapshot.isEmpty()).thenReturn(true);
-
-        // --- WHEN / THEN ---
-        assertThrows(IllegalArgumentException.class, () ->
-                contributionService.contributeProduct(productName, catId)
-        );
     }
 
     @Test
     @DisplayName("contributeProduct: Should throw exception for blank product name")
     void contributeProduct_BlankName_ThrowsException() {
         assertThrows(IllegalArgumentException.class, () ->
-                contributionService.contributeProduct("   ", null)
+                contributionService.contributeProduct("   ")
         );
     }
 }

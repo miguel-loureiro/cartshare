@@ -64,9 +64,7 @@ public class SyncController {
     public ResponseEntity<?> contributeProduct(@RequestBody ContributeProductRequest request) {
         try {
             Product product = productContributionService.contributeProduct(
-                    request.getProductName(),
-                    request.getCategoryId()
-            );
+                    request.getProductName());
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(buildProductResponse(product));
@@ -109,8 +107,6 @@ public class SyncController {
         }
 
     }
-
-
 
     // ===== PRODUCTS BY TYPE =====
 

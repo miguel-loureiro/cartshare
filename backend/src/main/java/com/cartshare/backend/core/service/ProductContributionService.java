@@ -28,7 +28,6 @@ public class ProductContributionService {
 
     /**
      * Contribute a new product to the system.
-     *
      * Process:
      * 1. Validate product name
      * 2. Check if product exists
@@ -39,13 +38,12 @@ public class ProductContributionService {
      * 7. Update autocomplete index
      *
      * @param productName Name of the product
-     * @param categoryId Category ID (optional, defaults to DEFAULT_CATEGORY)
      * @return Product with generated ID
      * @throws IllegalArgumentException if validation fails
      * @throws ExecutionException if Firestore operation fails
      * @throws InterruptedException if thread is interrupted
      */
-    public Product contributeProduct(String productName, String categoryId)
+    public Product contributeProduct(String productName)
             throws ExecutionException, InterruptedException {
 
         // 1. Validate
@@ -57,22 +55,19 @@ public class ProductContributionService {
             throw new IllegalArgumentException("Product already exists in the system");
         }
 
-        // 3. Resolve category
-        categoryId = resolveCategoryId(categoryId);
-
-        // 4. Generate keywords
+        // 3. Generate keywords
         List<String> searchKeywords = importer.generateSearchKeywords(productName);
         log.info("🔑 Generated keywords: {}", searchKeywords);
 
-        // 5. Create and save
+        // 4. Create and save
         Product product = Product.createUserContributed(productName, searchKeywords);
         Product savedProduct = saveProduct(product);
         log.info("✅ Product saved: {} (ID: {}, isOfficial: false)", productName, savedProduct.id());
 
-        // 6. Create keywords
+        // 5. Create keywords
         keywordService.createKeywordsForProduct(productName, searchKeywords);
 
-        // 7. Update autocomplete
+        // 6. Update autocomplete
         updateAutocompleteIndex();
 
         return savedProduct;
@@ -159,25 +154,6 @@ public class ProductContributionService {
             throw new IllegalArgumentException("Product name is required");
         }
         return productName.trim();
-    }
-
-    /**
-     * Resolve category ID with fallback to default
-     */
-    private String resolveCategoryId(String requestedCategoryId) throws ExecutionException, InterruptedException {
-        if (requestedCategoryId == null || requestedCategoryId.trim().isEmpty()) {
-            log.info("📦 No category specified, using default: {}", DEFAULT_CATEGORY);
-            return DEFAULT_CATEGORY;
-        }
-
-        String categoryId = requestedCategoryId.trim();
-
-        // Verify category exists
-        if (!firestore.collection("categories").document(categoryId).get().get().exists()) {
-            throw new IllegalArgumentException("Category '" + categoryId + "' does not exist");
-        }
-
-        return categoryId;
     }
 
     /**
