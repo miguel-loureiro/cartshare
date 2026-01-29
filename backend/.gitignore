@@ -36,4 +36,4 @@ out/
 ### VS Code ###
 .vscode/
 
-google-key-vps.json
+backend/google-key-vps.json
