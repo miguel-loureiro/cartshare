@@ -27,7 +27,7 @@ fun SplashScreenPlaceholder() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
-            painter = painterResource(id = R.drawable.cartshare2),
+            painter = painterResource(id = R.drawable.cartshare6),
             contentDescription = "CartShare Logo",
             modifier = Modifier.size(120.dp)
         )

@@ -9,98 +9,100 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.cartshareapp.features.auth.ui.theme.CartShareAppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SignedInScreen(
-    modifier: Modifier = Modifier,
-    onSignOut: () -> Unit,
-    onNavigateToProfile: () -> Unit // Added the missing parameter
+fun HomeScreen(
+    onNavigateToProfile: () -> Unit,
+    onCreateCart: () -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
+    val scope = rememberCoroutineScope()
+
+    // TEMP: no carts yet
+    val carts = emptyList<String>()
+
+    LaunchedEffect(Unit) {
+        snackbarHostState.showSnackbar(
+            message = "You don’t have any carts yet 🛒",
+            duration = SnackbarDuration.Short
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("CartShare") },
                 actions = {
-                    // Standard place for Settings/Profile
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Profile"
                         )
                     }
                 }
             )
-        },
-        modifier = modifier
-    ) { innerPadding ->
+        }
+    ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(padding)
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Success",
-                modifier = Modifier.size(64.dp),
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = null,
+                modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
+
             Spacer(Modifier.height(16.dp))
+
             Text(
-                text = "You are signed in ✅",
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
+                text = "No carts yet",
+                style = MaterialTheme.typography.headlineSmall
             )
+
             Spacer(Modifier.height(8.dp))
+
             Text(
-                text = "Welcome back! You can now start using CartShare.",
+                text = "Create your first cart and start sharing",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(32.dp))
-            Button(
-                onClick = onSignOut,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                Text("Sign Out")
-            }
-        }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-private fun SignedInScreenPreview() {
-    CartShareAppTheme {
-        Surface {
-            SignedInScreen(
-                onSignOut = {},
-                onNavigateToProfile = {} // Added dummy lambda for preview
-            )
+            Spacer(Modifier.height(24.dp))
+
+            Button(
+                onClick = onCreateCart,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Create cart")
+            }
         }
     }
 }

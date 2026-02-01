@@ -137,11 +137,15 @@ fun ProfileScreen(
                 )
             }
 
+            val isLoading = uiState is AuthUiState.Loading
+
             OutlinedButton(
+                enabled = !isLoading,
                 onClick = { showDeleteDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
             ) {
                 Text("Delete Account (Right to Erasure)")
             }
@@ -162,9 +166,15 @@ fun ProfileScreen(
                 Button(
                     onClick = {
                         showDeleteDialog = false
-                        viewModel.deleteUserAccount(
-                            onReauthRequired = { /* Stay on screen to see error */ },
-                            onAccountDeleted = { onAccountDeleted() }
+                        // Sincronizado com os parâmetros do teu ViewModel:
+                        // onReauthRequired e onDeleted
+                        viewModel.deleteAccount(
+                            onReauthRequired = {
+                                // O erro será mostrado automaticamente pelo uiState no ecrã
+                            },
+                            onDeleted = {
+                                onAccountDeleted()
+                            }
                         )
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

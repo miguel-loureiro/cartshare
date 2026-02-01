@@ -7,7 +7,7 @@
         android:height="200dp"
         android:gravity="center">
         <bitmap
-            android:src="@drawable/cartshare2"
+            android:src="@drawable/cartshare6"
             android:gravity="center" />
     </item>
 

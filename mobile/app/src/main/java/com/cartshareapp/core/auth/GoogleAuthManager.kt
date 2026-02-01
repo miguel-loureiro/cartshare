@@ -2,6 +2,8 @@ package com.cartshareapp.core.auth
 
 import android.content.Context
 import android.credentials.GetCredentialException
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -19,50 +21,50 @@ class GoogleAuthManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val credentialManager: CredentialManager
 ) {
+
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     suspend fun signIn(): String? {
-        // 1. Configure Google ID Option
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
-            .setServerClientId("572462600114-f4goen6i393vbiaq1shghfvjtnhv33vj.apps.googleusercontent.com")
+            .setServerClientId(
+                "572462600114-f4goen6i393vbiaq1shghfvjtnhv33vj.apps.googleusercontent.com"
+            )
             .setAutoSelectEnabled(true)
             .build()
 
-        // 2. Create the Credential Request
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(googleIdOption)
             .build()
 
         return try {
-            // 3. Launch the Bottom Sheet UI
             val result = credentialManager.getCredential(
                 context = context,
                 request = request
             )
 
-            // 4. Extract the ID Token
-            val googleIdToken = GoogleIdTokenCredential.createFrom(result.credential.data)
-            val idToken = googleIdToken.idToken
+            val googleIdToken =
+                GoogleIdTokenCredential.createFrom(result.credential.data)
 
-            // 5. Authenticate with Firebase
-            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val credential =
+                GoogleAuthProvider.getCredential(googleIdToken.idToken, null)
+
             auth.signInWithCredential(credential).await()
 
-            idToken // Return success
+            googleIdToken.idToken
         } catch (e: GetCredentialException) {
-            // User canceled or failed
+            // User canceled sign-in → NOT an error
             null
-        } catch (e: Exception) {
-            throw e
         }
     }
 
+    /** ✅ Safe suspend sign-out */
     suspend fun signOut() {
-        try {
-            credentialManager.clearCredentialState(ClearCredentialStateRequest())
-        } catch (e: Exception) {
-            e.printStackTrace()
+        runCatching {
+            credentialManager.clearCredentialState(
+                ClearCredentialStateRequest()
+            )
         }
     }
 }

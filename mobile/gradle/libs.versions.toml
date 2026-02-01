@@ -1,6 +1,7 @@
 [versions]
 # ---------- Tooling ----------
-agp = "8.6.1"
+agp = "8.13.2"
+biometric = "1.2.0-alpha05"
 kotlin = "2.1.10"
 ksp = "2.1.10-1.0.29"
 hilt = "2.53" # Updated for better Kotlin 2.1/KSP stability
@@ -34,6 +35,9 @@ junit = "4.13.2"
 androidx-junit = "1.2.1"
 espresso = "3.6.1"
 runtime = "1.10.1"
+animation = "1.10.1"
+uiText = "1.10.1"
+material3 = "1.4.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -44,6 +48,7 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 [libraries]
 # ---------- Core & Activity ----------
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version = "1.0.1" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
@@ -95,3 +100,6 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-junit" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
+androidx-compose-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiText" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }

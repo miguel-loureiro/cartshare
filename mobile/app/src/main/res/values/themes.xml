@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/cartshare2</item>
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-
+    <!-- System Splash Theme -->
+    <style name="Theme.App.CompanySplash" parent="Theme.SplashScreen">
+        <!-- Company logo shown immediately by the OS -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/llt_final_logo</item>
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <!-- After splash, switch to Compose theme -->
         <item name="postSplashScreenTheme">@style/Theme.CartShareApp</item>
     </style>
 
+    <!-- Compose app theme -->
     <style name="Theme.CartShareApp" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/purple_200</item>
+        <item name="android:windowBackground">@color/white</item>
     </style>
 </resources>
